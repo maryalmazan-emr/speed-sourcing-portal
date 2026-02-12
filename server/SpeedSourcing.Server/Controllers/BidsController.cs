@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.SignalR;
+using Microsoft.EntityFrameworkCore;
 
 [ApiController]
 public class BidsController : ControllerBase
@@ -38,10 +38,11 @@ public class BidsController : ControllerBase
         if (now < auction.StartsAt || now > auction.EndsAt)
             return BadRequest("Auction is not currently active");
 
-        var email = dto.vendor_email.Trim().ToLower();
+        var email = dto.vendor_email.Trim().ToLowerInvariant();
         var totalCost = dto.cost_per_unit * auction.Quantity;
 
-        var existing = await _db.Bids.FirstOrDefaultAsync(b => b.AuctionId == aid && b.VendorEmail == email);
+        var existing = await _db.Bids
+            .FirstOrDefaultAsync(b => b.AuctionId == aid && b.VendorEmail == email);
 
         if (existing == null)
         {
@@ -106,7 +107,8 @@ public class BidsController : ControllerBase
     {
         if (!Guid.TryParse(auctionId, out var aid)) return BadRequest("Invalid auctionId");
 
-        var email = vendorEmail.Trim().ToLower();
+        var email = vendorEmail.Trim().ToLowerInvariant();
+
         var bid = await _db.Bids.AsNoTracking()
             .FirstOrDefaultAsync(b => b.AuctionId == aid && b.VendorEmail == email);
 
@@ -144,7 +146,7 @@ public class BidsController : ControllerBase
             .Select((b, idx) => new { bid = b, rank = idx + 1 })
             .ToList();
 
-        var email = vendorEmail.Trim().ToLower();
+        var email = vendorEmail.Trim().ToLowerInvariant();
         var your = ranked.FirstOrDefault(x => x.bid.VendorEmail == email);
         var leader = ranked.FirstOrDefault();
 

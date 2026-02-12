@@ -6,19 +6,30 @@ using Microsoft.EntityFrameworkCore;
 public class VendorController : ControllerBase
 {
     private readonly AppDbContext _db;
-    public VendorController(AppDbContext db) => _db = db;
+
+    public VendorController(AppDbContext db)
+    {
+        _db = db;
+    }
 
     public record ValidateDto(string token);
 
     [HttpPost("validate")]
     public async Task<IActionResult> Validate([FromBody] ValidateDto dto)
     {
-        var token = dto.token.Trim();
-        var invite = await _db.VendorInvites.FirstOrDefaultAsync(i => i.InviteToken == token);
-        if (invite == null) return Ok(null);
+        var token = (dto.token ?? "").Trim();
+        if (string.IsNullOrWhiteSpace(token))
+            return Ok(null);
+
+        var invite = await _db.VendorInvites
+            .FirstOrDefaultAsync(i => i.InviteToken == token);
+
+        if (invite == null)
+            return Ok(null);
 
         var auction = await _db.Auctions.FindAsync(invite.AuctionId);
-        if (auction == null) return Ok(null);
+        if (auction == null)
+            return Ok(null);
 
         if (invite.Status == "pending")
         {
@@ -62,9 +73,15 @@ public class VendorController : ControllerBase
     [HttpPost("access")]
     public async Task<IActionResult> Access([FromBody] AccessDto dto)
     {
-        var token = dto.token.Trim();
-        var invite = await _db.VendorInvites.FirstOrDefaultAsync(i => i.InviteToken == token);
-        if (invite == null) return NoContent();
+        var token = (dto.token ?? "").Trim();
+        if (string.IsNullOrWhiteSpace(token))
+            return NoContent();
+
+        var invite = await _db.VendorInvites
+            .FirstOrDefaultAsync(i => i.InviteToken == token);
+
+        if (invite == null)
+            return NoContent();
 
         invite.Status = "accessed";
         invite.AccessedAt = DateTimeOffset.UtcNow;
