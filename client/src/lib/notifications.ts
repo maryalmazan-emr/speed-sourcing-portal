@@ -1,5 +1,3 @@
-// client/src/lib/notifications.ts
-
 export interface Notification {
   id: string;
   vendor_email: string;
@@ -31,7 +29,7 @@ export function getNotifications(vendorEmail?: string): Notification[] {
 
   if (!vendorEmail) return all;
   const email = vendorEmail.trim().toLowerCase();
-  return all.filter((n) => n.vendor_email?.toLowerCase() === email);
+  return all.filter(n => n.vendor_email?.toLowerCase() === email);
 }
 
 export function addNotification(
@@ -53,7 +51,7 @@ export function addNotification(
 
 export function markAsRead(notificationId: string): void {
   const notifications = getNotifications();
-  const n = notifications.find((x) => x.id === notificationId);
+  const n = notifications.find(x => x.id === notificationId);
   if (!n) return;
   n.read = true;
   localStorage.setItem(NOTIFICATIONS_KEY, JSON.stringify(notifications));
@@ -62,19 +60,19 @@ export function markAsRead(notificationId: string): void {
 export function markAllAsRead(vendorEmail: string): void {
   const email = vendorEmail.trim().toLowerCase();
   const notifications = getNotifications();
-  notifications.forEach((n) => {
+  notifications.forEach(n => {
     if (n.vendor_email?.toLowerCase() === email) n.read = true;
   });
   localStorage.setItem(NOTIFICATIONS_KEY, JSON.stringify(notifications));
 }
 
 export function getUnreadCount(vendorEmail: string): number {
-  return getNotifications(vendorEmail).filter((n) => !n.read).length;
+  return getNotifications(vendorEmail).filter(n => !n.read).length;
 }
 
 export function deleteNotification(notificationId: string): void {
   const notifications = getNotifications();
-  const filtered = notifications.filter((n) => n.id !== notificationId);
+  const filtered = notifications.filter(n => n.id !== notificationId);
   localStorage.setItem(NOTIFICATIONS_KEY, JSON.stringify(filtered));
 }
 
@@ -83,6 +81,8 @@ export function clearOldNotifications(daysOld: number = 30): void {
   const cutoff = new Date();
   cutoff.setDate(cutoff.getDate() - daysOld);
 
-  const filtered = notifications.filter((n) => new Date(n.created_at) > cutoff);
+  const filtered = notifications.filter(
+    n => new Date(n.created_at) > cutoff
+  );
   localStorage.setItem(NOTIFICATIONS_KEY, JSON.stringify(filtered));
 }

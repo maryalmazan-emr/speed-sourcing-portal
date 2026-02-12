@@ -1,18 +1,9 @@
-// client/src/lib/backend.ts
-// ✅ Frontend Types Only (Azure/.NET version)
-// All storage + business logic lives in the .NET backend.
-
 export interface Admin {
   id: string;
   email: string;
   company_name: string;
   role: "product_owner" | "global_admin" | "internal_user" | "external_guest";
   created_at: string;
-
-  /**
-   * Server should NOT return password_hash.
-   * Keep optional only so old code won't crash if it references it.
-   */
   password_hash?: string;
 }
 
@@ -29,10 +20,10 @@ export interface Auction {
   ends_at: string;
   status: "upcoming" | "active" | "completed" | "manually_closed";
   created_at: string;
+
   created_by_email: string;
   created_by_company: string;
 
-  // Optional UI fields
   date_requested?: string;
   requestor?: string;
   requestor_email?: string;
@@ -40,6 +31,7 @@ export interface Auction {
   event_type?: string;
   target_lead_time?: string;
   notes?: string;
+
   winner_vendor_email?: string;
   winner_vendor_company?: string;
   awarded_at?: string;

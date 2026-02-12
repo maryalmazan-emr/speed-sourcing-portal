@@ -1,4 +1,3 @@
-// src/lib/signalrClient.ts
 import {
   HubConnection,
   HubConnectionBuilder,
@@ -10,7 +9,7 @@ const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "";
 
 let auctionConnection: HubConnection | null = null;
 
-export function getAuctionHubConnection() {
+export function getAuctionHubConnection(): HubConnection {
   if (auctionConnection) return auctionConnection;
 
   auctionConnection = new HubConnectionBuilder()
@@ -22,7 +21,7 @@ export function getAuctionHubConnection() {
   return auctionConnection;
 }
 
-export async function ensureStarted(conn: HubConnection) {
+export async function ensureStarted(conn: HubConnection): Promise<void> {
   if (conn.state === HubConnectionState.Connected) return;
   if (conn.state === HubConnectionState.Connecting) return;
 

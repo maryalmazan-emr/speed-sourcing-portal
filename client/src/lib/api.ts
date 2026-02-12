@@ -54,14 +54,22 @@ export async function apiGetAuctions(adminId?: string) {
 }
 
 export async function apiGetAuction(auctionId: string) {
-  return apiJson<backend.Auction>(`/api/auctions/${encodeURIComponent(auctionId)}`);
+  return apiJson<backend.Auction>(
+    `/api/auctions/${encodeURIComponent(auctionId)}`
+  );
 }
 
-export async function apiUpdateAuction(auctionId: string, updates: Partial<backend.Auction>) {
-  return apiJson<backend.Auction>(`/api/auctions/${encodeURIComponent(auctionId)}`, {
-    method: "PATCH",
-    body: JSON.stringify(updates),
-  });
+export async function apiUpdateAuction(
+  auctionId: string,
+  updates: Partial<backend.Auction>
+) {
+  return apiJson<backend.Auction>(
+    `/api/auctions/${encodeURIComponent(auctionId)}`,
+    {
+      method: "PATCH",
+      body: JSON.stringify(updates),
+    }
+  );
 }
 
 /**
@@ -87,7 +95,6 @@ export async function apiGetInvites(auctionId?: string) {
 }
 
 export async function apiValidateVendorToken(token: string) {
-  // VendorLogin expects { invite: {...}, auction: {...} } or null
   return apiJson<any>("/api/vendor/validate", {
     method: "POST",
     body: JSON.stringify({ token }),
@@ -107,30 +114,45 @@ export async function apiUpdateVendorAccess(token: string) {
 export async function apiSubmitBid(
   bid: Omit<backend.Bid, "id" | "submitted_at" | "total_cost">
 ) {
-  return apiJson<backend.Bid>(`/api/auctions/${encodeURIComponent(bid.auction_id)}/bids`, {
-    method: "POST",
-    body: JSON.stringify(bid),
-  });
+  return apiJson<backend.Bid>(
+    `/api/auctions/${encodeURIComponent(bid.auction_id)}/bids`,
+    {
+      method: "POST",
+      body: JSON.stringify(bid),
+    }
+  );
 }
 
 export async function apiGetBids(auctionId: string) {
-  return apiJson<backend.Bid[]>(`/api/auctions/${encodeURIComponent(auctionId)}/bids`);
+  return apiJson<backend.Bid[]>(
+    `/api/auctions/${encodeURIComponent(auctionId)}/bids`
+  );
 }
 
-export async function apiGetVendorBid(auctionId: string, vendorEmail: string) {
+export async function apiGetVendorBid(
+  auctionId: string,
+  vendorEmail: string
+) {
   const qs = `?vendorEmail=${encodeURIComponent(vendorEmail)}`;
-  return apiJson<backend.Bid | null>(`/api/auctions/${encodeURIComponent(auctionId)}/bids/vendor${qs}`);
+  return apiJson<backend.Bid | null>(
+    `/api/auctions/${encodeURIComponent(
+      auctionId
+    )}/bids/vendor${qs}`
+  );
 }
 
-export async function apiGetVendorRankInfo(auctionId: string, vendorEmail: string) {
+export async function apiGetVendorRankInfo(
+  auctionId: string,
+  vendorEmail: string
+) {
   const qs = `?vendorEmail=${encodeURIComponent(vendorEmail)}`;
-  return apiJson<any>(`/api/auctions/${encodeURIComponent(auctionId)}/rank${qs}`);
+  return apiJson<any>(
+    `/api/auctions/${encodeURIComponent(auctionId)}/rank${qs}`
+  );
 }
 
 /**
- * Optional: ranking helper for UI (client-side fallback).
- * Prefer server ranking (apiGetVendorRankInfo), but this keeps compatibility
- * if any screen still calls apiRankBids().
+ * Client-side fallback ranking (NOT authoritative)
  */
 export async function apiRankBids(bids: backend.Bid[]) {
   const sorted = [...bids].sort((a, b) => {
@@ -147,7 +169,7 @@ export async function apiRankBids(bids: backend.Bid[]) {
 }
 
 /**
- * Supplier History APIs
+ * Supplier APIs
  */
 export async function apiGetSupplierHistory() {
   return apiJson<backend.Supplier[]>("/api/suppliers");
@@ -168,13 +190,15 @@ export async function apiMigrateInvites() {
 }
 
 /**
- * Backward compatibility: apiCall + getApiUrl (useful for debugging)
+ * Backward compatibility
  */
-export async function apiCall(path: string, options?: RequestInit): Promise<Response> {
+export async function apiCall(
+  path: string,
+  options?: RequestInit
+): Promise<Response> {
   return fetch(apiUrl(path), options);
 }
 
 export function getApiUrl(path: string): string {
   return apiUrl(path);
 }
-``
