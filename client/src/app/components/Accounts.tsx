@@ -1,13 +1,26 @@
-import React, { useState, useCallback } from 'react';
-import { Button } from '@/app/components/ui/button';
-import { Input } from '@/app/components/ui/input';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/app/components/ui/card';
-import { Badge } from '@/app/components/ui/badge';
-import { ArrowLeft, Copy, Search, Trash2, Users, UserCircle, RefreshCw } from 'lucide-react';
-import { toast } from 'sonner';
-import { apiGetInvites, apiGetAllAdmins } from '@/lib/api';
-import { copyToClipboard } from '@/lib/clipboard';
-import { hasGlobalAccess, canDelete, getRoleName } from '@/lib/adminAuth';
+import { useState, useCallback } from "react";
+import { Button } from "@/app/components/ui/button";
+import { Input } from "@/app/components/ui/input";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/app/components/ui/card";
+import { Badge } from "@/app/components/ui/badge";
+import {
+  ArrowLeft,
+  Copy,
+  Trash2,
+  Users,
+  UserCircle,
+  RefreshCw,
+} from "lucide-react";
+import { toast } from "sonner";
+import { apiGetInvites, apiGetAllAdmins } from "@/lib/api";
+import { copyToClipboard } from "@/lib/clipboard";
+import { hasGlobalAccess, canDelete, getRoleName } from "@/lib/adminAuth";
 import {
   Table,
   TableBody,
@@ -15,10 +28,9 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/app/components/ui/table';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/app/components/ui/tabs';
-import { useRealTimeData, LastUpdateIndicator } from '@/lib/useRealTimeData';
-
+} from "@/app/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/app/components/ui/tabs";
+import { useRealTimeData, LastUpdateIndicator } from "@/lib/useRealTimeData";
 interface AccountsProps {
   onBack: () => void;
   adminEmail: string;

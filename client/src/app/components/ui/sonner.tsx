@@ -1,5 +1,5 @@
-// client/src/app/components/ui/sonner.tsx
-import React from "react";
+"use client";
+
 import { Toaster as SonnerToaster } from "sonner";
 
 type Props = React.ComponentProps<typeof SonnerToaster>;

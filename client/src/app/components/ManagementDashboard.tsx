@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Button } from '@/app/components/ui/button';
-import { Input } from '@/app/components/ui/input';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/app/components/ui/card';
-import { Badge } from '@/app/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/app/components/ui/tabs';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Table,
   TableBody,
@@ -11,12 +11,11 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/app/components/ui/table';
+} from '@/components/ui/table';
 import { Crown, Search, Trash2, Copy, Calendar, Users, TrendingUp, AlertCircle, RefreshCw } from 'lucide-react';
 import { apiGetAuctions, apiGetInvites } from '@/lib/api';
 import { getRoleName, canDelete } from '@/lib/adminAuth';
 import { toast } from 'sonner';
-import { copyToClipboard } from '@/lib/clipboard';
 import { useRealTimeData, LastUpdateIndicator } from '@/lib/useRealTimeData.tsx';
 
 interface ManagementDashboardProps {
@@ -154,10 +153,10 @@ export function ManagementDashboard({ adminEmail, adminPassword, userRole, onSel
       toast.error('No code to copy');
       return;
     }
-    const success = await copyToClipboard(code);
-    if (success) {
+    try {
+      await navigator.clipboard.writeText(code);
       toast.success('Invite code copied!');
-    } else {
+    } catch {
       toast.error('Failed to copy code');
     }
   };
@@ -175,10 +174,10 @@ Invite Code: ${invite.invite_code}
 
 Please log in at the vendor portal to submit your bid.`;
     
-    const success = await copyToClipboard(inviteText);
-    if (success) {
+    try {
+      await navigator.clipboard.writeText(inviteText);
       toast.success('Full invitation copied!');
-    } else {
+    } catch {
       toast.error('Failed to copy invitation');
     }
   };
@@ -354,7 +353,7 @@ Please log in at the vendor portal to submit your bid.`;
           <Input
             placeholder="Search auctions, accounts, codes, or requestors..."
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchQuery(e.target.value)}
             className="pl-10"
           />
         </div>
@@ -454,8 +453,7 @@ Please log in at the vendor portal to submit your bid.`;
                             variant="outline"
                             size="sm"
                             className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                            onClick={(e) => handleDeleteAuction(auction.id, auction.title, e)}
-                          >
+                            onClick={(e: React.MouseEvent) => handleDeleteAuction(auction.id, auction.title, e)}                          >
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         )}
@@ -594,18 +592,18 @@ Please log in at the vendor portal to submit your bid.`;
                             Full Invite
                           </Button>
 
-                          {canDeleteItems && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                              onClick={(e) =>
-                                handleDeleteAccount(invite.id, invite.email, e)
-                              }
-                            >
-                              <Trash2 className="h-3 w-3" />
-                            </Button>
-                          )}
+  {canDeleteItems && (
+    <Button
+      size="sm"
+      variant="outline"
+      className="text-red-600 hover:text-red-700 hover:bg-red-50"
+      onClick={(e: React.MouseEvent) =>
+        handleDeleteAccount(invite.id, invite.email, e)
+      }
+    >
+      <Trash2 className="h-3 w-3" />
+    </Button>
+  )}
                         </TableCell>
                       </TableRow>
                     ))}
