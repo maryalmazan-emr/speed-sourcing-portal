@@ -1,8 +1,3 @@
-/**
- * Admin Authentication & Role Management
- * Uses the .NET-backed API layer (local now, Azure later).
- */
-
 import { apiCreateAdmin, apiValidateAdmin, apiGetAllAdmins } from "./api";
 import type { Admin } from "./backend";
 
@@ -12,7 +7,6 @@ export type AdminRole =
   | "internal_user"
   | "external_guest";
 
-// Role hierarchy (higher number = more permissions)
 const ROLE_HIERARCHY: Record<AdminRole, number> = {
   product_owner: 4,
   global_admin: 3,
@@ -21,39 +15,26 @@ const ROLE_HIERARCHY: Record<AdminRole, number> = {
 };
 
 export function getRoleName(role: AdminRole): string {
-  const names: Record<AdminRole, string> = {
+  return {
     product_owner: "Product Owner",
     global_admin: "Global Administrator",
     internal_user: "Internal User",
     external_guest: "External Guest",
-  };
-  return names[role];
-}
-
-export function getRoleLevel(role: AdminRole): number {
-  return ROLE_HIERARCHY[role];
+  }[role];
 }
 
 export function hasGlobalAccess(role: AdminRole): boolean {
-  return getRoleLevel(role) >= getRoleLevel("global_admin");
+  return ROLE_HIERARCHY[role] >= ROLE_HIERARCHY.global_admin;
 }
 
 export function canDelete(role: AdminRole): boolean {
-  return getRoleLevel(role) >= getRoleLevel("product_owner");
-}
-
-export function canManageAccounts(role: AdminRole): boolean {
-  return getRoleLevel(role) >= getRoleLevel("global_admin");
-}
-
-export function canSendMessages(role: AdminRole): boolean {
-  return getRoleLevel(role) >= getRoleLevel("global_admin");
+  return ROLE_HIERARCHY[role] >= ROLE_HIERARCHY.product_owner;
 }
 
 export async function createAdminAccount(
   email: string,
   password: string,
-  company_name: string,
+  company_name: string, 
   role: AdminRole
 ): Promise<Admin> {
   return apiCreateAdmin(email, password, company_name, role);
@@ -69,6 +50,7 @@ export async function validateAdminLogin(
 export async function getAllAdminAccounts(): Promise<Admin[]> {
   return apiGetAllAdmins();
 }
+``
 
 export async function isFirstTimeSetup(): Promise<boolean> {
   const admins = await apiGetAllAdmins();
@@ -103,7 +85,7 @@ export async function createPresetAccounts(): Promise<void> {
     await createAdminAccount(
       "test.user@emerson.com",
       "Emerson!",
-      "Test",
+      "Test User",
       "internal_user"
     );
     createdCount++;

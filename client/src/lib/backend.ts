@@ -6,7 +6,6 @@ export interface Admin {
   created_at: string;
   password_hash?: string;
 }
-
 export interface Auction {
   id: string;
   admin_id: string;
