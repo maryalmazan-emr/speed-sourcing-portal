@@ -1,3 +1,4 @@
+// file: server/SpeedSourcing.Server/Entities/BidEntity.cs
 using System.ComponentModel.DataAnnotations;
 
 public class BidEntity
@@ -22,10 +23,9 @@ public class BidEntity
     [Required, MaxLength(50)]
     public required string ContactPhone { get; set; }
 
-    public int DeliveryTimeDays { get; set; }   // ✅ int, not decimal
-
-    public decimal CostPerUnit { get; set; }
-    public decimal TotalCost { get; set; }
+    public int DeliveryTimeDays { get; set; }      // ✅ int (days)
+    public decimal CostPerUnit { get; set; }       // ✅ money
+    public decimal TotalCost { get; set; }         // ✅ money
 
     public string Notes { get; set; } = "";
 

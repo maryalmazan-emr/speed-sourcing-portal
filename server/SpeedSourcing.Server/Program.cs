@@ -1,3 +1,4 @@
+// file: server/SpeedSourcing.Server/Program.cs
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -10,12 +11,9 @@ builder.Services.AddSwaggerGen();
 // =======================
 // Database mode switch
 // =======================
-// Local-first: default to InMemory unless explicitly configured otherwise.
-// For Azure SQL later: set UseInMemoryDatabase=false and provide ConnectionStrings:Sql.
 var useInMemory = builder.Configuration.GetValue("UseInMemoryDatabase", true);
 var sqlConn = builder.Configuration.GetConnectionString("Sql");
 
-// If someone disabled InMemory but forgot to configure SQL connection string, fall back safely.
 if (!useInMemory && string.IsNullOrWhiteSpace(sqlConn))
 {
     useInMemory = true;
@@ -23,27 +21,21 @@ if (!useInMemory && string.IsNullOrWhiteSpace(sqlConn))
     Console.WriteLine("[Program] UseInMemoryDatabase=false but ConnectionStrings:Sql is missing. Falling back to InMemory.");
 }
 
+// ✅ DbContext pooling for better performance under concurrent load
 if (useInMemory)
 {
-    builder.Services.AddDbContext<AppDbContext>(opt =>
+    builder.Services.AddDbContextPool<AppDbContext>(opt =>
         opt.UseInMemoryDatabase("SpeedSourcingDb"));
 }
 else
 {
-    // Requires package: Microsoft.EntityFrameworkCore.SqlServer
-    builder.Services.AddDbContext<AppDbContext>(opt =>
+    builder.Services.AddDbContextPool<AppDbContext>(opt =>
         opt.UseSqlServer(sqlConn));
 }
 
 // =======================
 // SignalR (Local now, Azure later)
 // =======================
-// Local dev uses normal SignalR.
-// When Azure SignalR is configured, we automatically switch to Azure SignalR backplane.
-//
-// Microsoft Learn: You can configure connection string via environment variable
-// Azure:SignalR:ConnectionString or Azure__SignalR__ConnectionString, and in App Service
-// you put it in application settings. [1](https://learn.microsoft.com/en-us/azure/azure-signalr/signalr-howto-use)
 var azureSignalRConn =
     builder.Configuration["Azure:SignalR:ConnectionString"] ??
     builder.Configuration["Azure__SignalR__ConnectionString"];
@@ -52,7 +44,6 @@ var signalR = builder.Services.AddSignalR();
 
 if (!string.IsNullOrWhiteSpace(azureSignalRConn))
 {
-    // Requires package: Microsoft.Azure.SignalR
     signalR.AddAzureSignalR(options => options.ConnectionString = azureSignalRConn);
     Console.WriteLine("[Program] Azure SignalR enabled (connection string found).");
 }
@@ -64,11 +55,6 @@ else
 // =======================
 // CORS (Local dev only)
 // =======================
-// Vite dev server is cross-origin (localhost:5173 etc).
-// In production (Azure), prefer same-origin (host client+server together) so CORS isn’t needed.
-//
-// SignalR browser clients need CORS configured properly when cross-origin.
-// Keep this permissive for local development only; tighten later. 
 const string DevCorsPolicy = "DevCorsPolicy";
 
 builder.Services.AddCors(options =>
@@ -97,6 +83,82 @@ app.UseRouting();
 if (app.Environment.IsDevelopment())
 {
     app.UseCors(DevCorsPolicy);
+}
+
+// =======================
+// ✅ DEV-ONLY SEED DATA
+// =======================
+if (app.Environment.IsDevelopment())
+{
+    using var scope = app.Services.CreateScope();
+    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+    // Only seed if empty
+    if (!db.Auctions.Any())
+    {
+        var adminId = Guid.NewGuid();
+        var auctionId = Guid.NewGuid();
+
+        var auction = new AuctionEntity
+        {
+            Id = auctionId,
+            AdminId = adminId,
+            Title = "DEV Seed Auction",
+            Description = "Seeded auction for Swagger Try-it-out testing",
+            ProductDetails = "DEV-ITEM-001",
+            Quantity = 10,
+            Unit = "EA",
+            DeliveryLocation = "Marshalltown, IA",
+            StartsAt = DateTimeOffset.UtcNow.AddMinutes(-5),
+            EndsAt = DateTimeOffset.UtcNow.AddHours(2),
+            Status = "live",
+            CreatedAt = DateTimeOffset.UtcNow,
+            CreatedByEmail = "dev@emerson.com",
+            CreatedByCompany = "Emerson",
+            Notes = "This record is created automatically in Development only."
+        };
+
+        var inviteToken = Guid.NewGuid().ToString("N")[..10].ToUpperInvariant();
+
+        var invite = new VendorInviteEntity
+        {
+            Id = Guid.NewGuid(),
+            AuctionId = auctionId,
+            VendorEmail = "supplier@example.com",
+            VendorCompany = "Supplier Co",
+            InviteToken = inviteToken,
+            InviteSentAt = DateTimeOffset.UtcNow,
+            InviteMethod = "seed",
+            Status = "pending",
+            AccessedAt = null
+        };
+
+        db.Auctions.Add(auction);
+        db.VendorInvites.Add(invite);
+
+        // Optional: seed a bid as well (uncomment if you want rank to show immediately)
+        // db.Bids.Add(new BidEntity
+        // {
+        //     Id = Guid.NewGuid(),
+        //     AuctionId = auctionId,
+        //     VendorEmail = "supplier@example.com",
+        //     VendorCompany = "Supplier Co",
+        //     CompanyName = "Supplier Co",
+        //     ContactName = "Dev Supplier",
+        //     ContactPhone = "555-0100",
+        //     DeliveryTimeDays = 14,
+        //     CostPerUnit = 12.34m,
+        //     TotalCost = 12.34m * 10m,
+        //     Notes = "Seed bid",
+        //     SubmittedAt = DateTimeOffset.UtcNow
+        // });
+
+        db.SaveChanges();
+
+        Console.WriteLine($"[DEV SEED] AuctionId: {auctionId}");
+        Console.WriteLine($"[DEV SEED] InviteToken: {inviteToken}");
+        Console.WriteLine($"[DEV SEED] VendorEmail: supplier@example.com");
+    }
 }
 
 app.MapControllers();
