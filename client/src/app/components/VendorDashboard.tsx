@@ -1,4 +1,9 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+// File: src/app/components/VendorDashboard.tsx
+
+"use client";
+
+import { useCallback, useEffect, useRef, useState } from "react";
+import type { FormEvent } from "react";
 import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
 import { Label } from "@/app/components/ui/label";
@@ -18,8 +23,15 @@ import {
   apiGetVendorRankInfo,
   apiUpdateVendorAccess,
 } from "@/lib/api";
-
 import { addNotification } from "@/lib/notifications";
+
+type VendorStatus = {
+  vendor_bid: any | null;
+  rank: number | null;
+  total_bids: number;
+  leading_delivery_time: number | null;
+  leading_price: number | null;
+};
 
 interface VendorDashboardProps {
   auction: any;
@@ -27,28 +39,29 @@ interface VendorDashboardProps {
   onLogout: () => void;
 }
 
-export function VendorDashboard({
-  auction,
-  session,
-  onLogout,
-}: VendorDashboardProps) {
+export function VendorDashboard({ auction, session, onLogout }: VendorDashboardProps) {
   const [deliveryTime, setDeliveryTime] = useState("");
   const [price, setPrice] = useState("");
   const [companyName, setCompanyName] = useState("");
   const [contactName, setContactName] = useState("");
   const [contactPhone, setContactPhone] = useState("");
 
-  const [status, setStatus] = useState<any>(null);
+  const [status, setStatus] = useState<VendorStatus | null>(null);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [showCompanyForm, setShowCompanyForm] = useState(false);
 
-  // Use refs for notification tracking to avoid dependency issues
   const previousRankRef = useRef<number | null>(null);
   const auctionStartNotifiedRef = useRef(false);
   const auctionEndNotifiedRef = useRef(false);
 
-  const isAuctionActive = useCallback(() => {
+  useEffect(() => {
+    previousRankRef.current = null;
+    auctionStartNotifiedRef.current = false;
+    auctionEndNotifiedRef.current = false;
+  }, [auction?.id]);
+
+  const isAuctionActive = useCallback((): boolean => {
     if (!auction) return false;
     if (auction.status !== "active") return false;
     const now = new Date();
@@ -57,49 +70,43 @@ export function VendorDashboard({
     return now >= startsAt && endsAt > now;
   }, [auction]);
 
-  const hasAuctionStarted = useCallback(() => {
+  const hasAuctionStarted = useCallback((): boolean => {
     if (!auction) return false;
     return new Date() >= new Date(auction.starts_at);
   }, [auction]);
 
-  const hasAuctionEnded = useCallback(() => {
+  const hasAuctionEnded = useCallback((): boolean => {
     if (!auction) return false;
     return new Date() > new Date(auction.ends_at);
   }, [auction]);
 
-  const updateAccessTracking = useCallback(async () => {
+  const updateAccessTracking = useCallback(async (): Promise<void> => {
     try {
       if (session?.session_token) {
         await apiUpdateVendorAccess(session.session_token);
-        console.log("[VendorDashboard] Updated access tracking");
       }
     } catch (error) {
-      console.error("Error updating access tracking:", error);
+      console.error("[VendorDashboard] Error updating access tracking:", error);
     }
-  }, [session]);
+  }, [session?.session_token]);
 
-  const loadStatus = useCallback(async () => {
-    if (!auction || !session) return;
+  const loadStatus = useCallback(async (): Promise<void> => {
+    if (!auction?.id || !session?.vendor_email) return;
 
     try {
       setLoading(true);
 
-      // Get vendor's bid
       const vendorBid = await apiGetVendorBid(auction.id, session.vendor_email);
-
-      // Get vendor's rank info
       const rankInfo = await apiGetVendorRankInfo(auction.id, session.vendor_email);
 
-      // Combine into status object with expected field names
-      const data = {
-        vendor_bid: vendorBid,
+      const data: VendorStatus = {
+        vendor_bid: vendorBid ?? null,
         rank: rankInfo?.your_rank ?? null,
         total_bids: rankInfo?.total_participants ?? 0,
         leading_delivery_time: rankInfo?.leading_delivery_time ?? null,
         leading_price: rankInfo?.leading_cost ?? null,
       };
 
-      // Track rank changes using ref to avoid dependency issues
       const currentRank = data.rank;
       const prevRank = previousRankRef.current;
 
@@ -109,44 +116,41 @@ export function VendorDashboard({
         currentRank !== null &&
         prevRank !== currentRank
       ) {
-        if (currentRank < prevRank) {
-          addNotification({
-            vendor_email: session.vendor_email,
-            auction_id: auction.id,
-            type: "rank_change",
-            title: "Rank Improved",
-            message: `Your position has improved from #${prevRank} to #${currentRank}.`,
-            old_rank: prevRank,
-            new_rank: currentRank,
-          });
-        } else {
-          addNotification({
-            vendor_email: session.vendor_email,
-            auction_id: auction.id,
-            type: "rank_change",
-            title: "Rank Changed",
-            message: `Your position has changed from #${prevRank} to #${currentRank}. Consider updating your bid.`,
-            old_rank: prevRank,
-            new_rank: currentRank,
-          });
-        }
+        addNotification({
+          vendor_email: session.vendor_email,
+          auction_id: auction.id,
+          type: "rank_change",
+          title: currentRank < prevRank ? "Rank Improved" : "Rank Changed",
+          message:
+            currentRank < prevRank
+              ? `Your position has improved from #${prevRank} to #${currentRank}.`
+              : `Your position has changed from #${prevRank} to #${currentRank}. Consider updating your bid.`,
+          old_rank: prevRank,
+          new_rank: currentRank,
+        });
       }
 
-      // Update ref
-      if (currentRank !== null) {
-        previousRankRef.current = currentRank;
-      }
+      if (currentRank !== null) previousRankRef.current = currentRank;
 
       setStatus(data);
 
       if (vendorBid) {
-        setDeliveryTime(vendorBid.delivery_time_days?.toString() || "");
-        setPrice((vendorBid.cost_per_unit || vendorBid.price)?.toString() || "");
+        setDeliveryTime(
+          vendorBid.delivery_time_days != null
+            ? vendorBid.delivery_time_days.toString()
+            : ""
+        );
+
+        setPrice(
+          vendorBid.cost_per_unit != null
+            ? vendorBid.cost_per_unit.toString()
+            : ""
+        );
 
         if (vendorBid.company_name) {
           setCompanyName(vendorBid.company_name);
-          setContactName(vendorBid.contact_name || "");
-          setContactPhone(vendorBid.contact_phone || "");
+          setContactName(vendorBid.contact_name ?? "");
+          setContactPhone(vendorBid.contact_phone ?? "");
           setShowCompanyForm(false);
         } else {
           setShowCompanyForm(true);
@@ -155,29 +159,42 @@ export function VendorDashboard({
         setShowCompanyForm(true);
       }
     } catch (error) {
-      console.error("Error loading status:", error);
+      console.error("[VendorDashboard] Error loading status:", error);
     } finally {
       setLoading(false);
     }
-  }, [auction, session, isAuctionActive]);
+  }, [auction?.id, session?.vendor_email, isAuctionActive]);
 
-  // Load status on mount and set up polling
   useEffect(() => {
     if (!auction || !session) return;
 
-    updateAccessTracking();
-    loadStatus();
+    void updateAccessTracking();
+    void loadStatus();
 
-    const interval = setInterval(loadStatus, 5000);
+    const interval = setInterval(() => {
+      void loadStatus();
+    }, 5000);
+
     return () => clearInterval(interval);
   }, [auction, session, updateAccessTracking, loadStatus]);
 
-  const handleSubmitBid = async (e: React.FormEvent) => {
+  const handleSubmitBid = async (e: FormEvent): Promise<void> => {
     e.preventDefault();
 
-    // Validate company info for first-time bidders
-    if (showCompanyForm && (!companyName || !contactName)) {
+    if (showCompanyForm && (!companyName.trim() || !contactName.trim())) {
       toast.error("Please provide your company name and contact name");
+      return;
+    }
+
+    const delivery = parseFloat(deliveryTime);
+    const cost = parseFloat(price);
+
+    if (!Number.isFinite(delivery) || delivery <= 0) {
+      toast.error("Please enter a valid delivery time (days)");
+      return;
+    }
+    if (!Number.isFinite(cost) || cost <= 0) {
+      toast.error("Please enter a valid price");
       return;
     }
 
@@ -187,28 +204,28 @@ export function VendorDashboard({
       await apiSubmitBid({
         auction_id: auction.id,
         vendor_email: session.vendor_email,
-        vendor_company: companyName, // Use companyName for vendor_company
+        vendor_company: companyName,
         company_name: companyName,
         contact_name: contactName,
         contact_phone: contactPhone || "",
-        delivery_time_days: parseFloat(deliveryTime),
-        cost_per_unit: parseFloat(price),
+        delivery_time_days: delivery,
+        cost_per_unit: cost,
         notes: "",
       });
 
       toast.success("Bid submitted successfully!");
-      setShowCompanyForm(false); // Hide company form after first submission
-      loadStatus();
+      setShowCompanyForm(false);
+      await loadStatus();
     } catch (error: any) {
-      console.error("Bid submission error:", error);
-      toast.error(error.message || "Failed to submit bid");
+      console.error("[VendorDashboard] Bid submission error:", error);
+      toast.error(error?.message || "Failed to submit bid");
     } finally {
       setSubmitting(false);
     }
   };
 
   const getRankBadge = () => {
-    if (!status || !status.rank) return null;
+    if (!status?.rank) return null;
 
     if (status.rank === 1) {
       return (
@@ -217,29 +234,27 @@ export function VendorDashboard({
           Leading
         </Badge>
       );
-    } else if (status.rank === 2) {
+    }
+    if (status.rank === 2) {
       return (
         <Badge className="bg-[#004b8d] text-white border-0">
           <TrendingUp className="h-3 w-3 mr-1" />
           Close
         </Badge>
       );
-    } else {
-      return (
-        <Badge className="bg-[#75787c] text-white border-0">
-          <Award className="h-3 w-3 mr-1" />
-          Improve
-        </Badge>
-      );
     }
+    return (
+      <Badge className="bg-[#75787c] text-white border-0">
+        <Award className="h-3 w-3 mr-1" />
+        Improve
+      </Badge>
+    );
   };
 
-  // Check for auction start and end - poll every second for real-time updates
   useEffect(() => {
-    if (!auction || !session) return;
+    if (!auction || !session?.vendor_email) return;
 
     const checkAuctionStatus = () => {
-      // Check if auction just started (using ref to avoid infinite loop)
       if (hasAuctionStarted() && !auctionStartNotifiedRef.current) {
         addNotification({
           vendor_email: session.vendor_email,
@@ -251,7 +266,6 @@ export function VendorDashboard({
         auctionStartNotifiedRef.current = true;
       }
 
-      // Check if auction just ended (using ref to avoid infinite loop)
       if (hasAuctionEnded() && !auctionEndNotifiedRef.current) {
         addNotification({
           vendor_email: session.vendor_email,
@@ -267,7 +281,7 @@ export function VendorDashboard({
     checkAuctionStatus();
     const interval = setInterval(checkAuctionStatus, 1000);
     return () => clearInterval(interval);
-  }, [auction, session, hasAuctionStarted, hasAuctionEnded]);
+  }, [auction, session?.vendor_email, hasAuctionStarted, hasAuctionEnded]);
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-4xl">
@@ -277,7 +291,7 @@ export function VendorDashboard({
             Vendor Dashboard
           </h1>
           <p className="text-sm text-gray-600 dark:text-gray-300">
-            Logged in as: {session.vendor_email}
+            Logged in as: {session?.vendor_email}
           </p>
           {loading && (
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
@@ -285,20 +299,19 @@ export function VendorDashboard({
             </p>
           )}
         </div>
-        <Button variant="outline" onClick={onLogout}>
+        <Button variant="outline" onClick={onLogout} type="button">
           Logout
         </Button>
       </div>
 
-      {/* Auction Details */}
       <Card className="mb-6">
         <CardHeader>
-          <CardTitle>{auction.title}</CardTitle>
-          <CardDescription>{auction.description}</CardDescription>
+          <CardTitle>{auction?.title}</CardTitle>
+          <CardDescription>{auction?.description}</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
-            {auction.product_details && (
+            {auction?.product_details && (
               <div>
                 <span className="text-gray-600 dark:text-gray-300">
                   Part Numbers &amp; Qty:
@@ -309,7 +322,7 @@ export function VendorDashboard({
               </div>
             )}
 
-            {auction.delivery_location && (
+            {auction?.delivery_location && (
               <div>
                 <span className="text-gray-600 dark:text-gray-300">
                   Delivery Location:
@@ -321,8 +334,8 @@ export function VendorDashboard({
             )}
 
             <div>
-              <span className="text-gray-600 dark:text-white">Status:</span>
-              <div>
+              <span className="text-gray-600 dark:text-gray-300">Status:</span>
+              <div className="mt-1">
                 {!hasAuctionStarted() ? (
                   <Badge className="bg-gray-100/50 dark:bg-gray-700/50 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-600">
                     Not Started
@@ -336,7 +349,7 @@ export function VendorDashboard({
             </div>
           </div>
 
-          {auction.notes && (
+          {auction?.notes && (
             <div className="mt-4 p-3 bg-gray-50 dark:bg-gray-700 rounded">
               <span className="text-sm text-gray-600 dark:text-gray-300">
                 Notes:
@@ -349,8 +362,7 @@ export function VendorDashboard({
         </CardContent>
       </Card>
 
-      {/* Your Rank Card */}
-      {status && status.rank > 0 && (
+      {status?.rank != null && status.rank > 0 && (
         <Card className="mb-6">
           <CardHeader>
             <CardTitle>Your Rank</CardTitle>
@@ -371,7 +383,6 @@ export function VendorDashboard({
         </Card>
       )}
 
-      {/* Competitive Stats */}
       <Card className="mb-6">
         <CardHeader>
           <CardTitle>Competitive Stats (Anonymous)</CardTitle>
@@ -381,7 +392,7 @@ export function VendorDashboard({
           <div className="grid grid-cols-3 gap-4">
             <div className="text-center p-4 bg-gray-100/50 dark:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-600">
               <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                {status?.total_bids || 0}
+                {status?.total_bids ?? 0}
               </div>
               <div className="text-sm text-gray-600 dark:text-gray-300">
                 Total Bids
@@ -390,7 +401,7 @@ export function VendorDashboard({
 
             <div className="text-center p-4 bg-gray-100/50 dark:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-600">
               <div className="text-2xl font-bold text-green-600 dark:text-green-400">
-                {status?.leading_delivery_time
+                {status?.leading_delivery_time != null
                   ? `${status.leading_delivery_time} days`
                   : "N/A"}
               </div>
@@ -413,7 +424,6 @@ export function VendorDashboard({
         </CardContent>
       </Card>
 
-      {/* Bid Form */}
       <Card>
         <CardHeader>
           <CardTitle>
@@ -472,6 +482,7 @@ export function VendorDashboard({
                   onChange={(e) => setCompanyName(e.target.value)}
                   placeholder="e.g., ABC Company"
                   required
+                  disabled={submitting}
                 />
 
                 <Label htmlFor="contact-name">Contact Name *</Label>
@@ -484,6 +495,7 @@ export function VendorDashboard({
                   onChange={(e) => setContactName(e.target.value)}
                   placeholder="e.g., John Doe"
                   required
+                  disabled={submitting}
                 />
 
                 <Label htmlFor="contact-phone">Contact Phone</Label>
@@ -495,6 +507,7 @@ export function VendorDashboard({
                   value={contactPhone}
                   onChange={(e) => setContactPhone(e.target.value)}
                   placeholder="e.g., 123-456-7890"
+                  disabled={submitting}
                 />
               </div>
             )}

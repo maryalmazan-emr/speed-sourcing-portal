@@ -1,6 +1,8 @@
-// client/src/app/App.tsx
+// File: src/app/App.tsx
 
-import React, { useEffect, useState } from "react";
+"use client";
+
+import { useEffect, useState } from "react";
 
 import { Header } from "@/app/components/Header";
 import { AdminSetup } from "@/app/components/AdminSetup";
@@ -11,19 +13,19 @@ import { VendorDashboard } from "@/app/components/VendorDashboard";
 import { AllAuctions } from "@/app/components/AllAuctions";
 import { Accounts } from "@/app/components/Accounts";
 import { ManagementDashboard } from "@/app/components/ManagementDashboard";
-import { ManageGlobalAdmins } from "@/app/components/ManageGlobalAdmins";
+import { ManageGlobalAdmins } from "@/app/components/ManageGlobalAdmin";
 import { MessagingCenter } from "@/app/components/MessagingCenter";
 import { DebugStorage } from "@/app/components/DebugStorage";
 
 import { Toaster } from "@/app/components/ui/sonner";
 import { toast } from "sonner";
 
-import { createAdminAccount, validateAdminLogin, createPresetAccounts } from "@/lib/adminAuth";
+import { createAdminAccount, validateAdmin, createPresetAccounts } from "@/lib/adminAuth";
 import { apiGetAuctions, apiGetAuction, apiMigrateInvites } from "@/lib/api";
 import type { Admin } from "@/lib/backend";
 
 import { ThemeProvider } from "@/lib/theme";
-import { setupAutoBackup, checkDataIntegrity, createBackup, setupDataMonitoring } from "@/lib/dataProtection";
+import { createBackup, setupDataMonitoring } from "@/lib/dataProtection";
 
 type View =
   | "admin-login"
@@ -38,33 +40,51 @@ type View =
   | "messaging-center"
   | "debug-storage";
 
+type Role = "admin" | "vendor";
+
+type AdminSession = {
+  email: string;
+  name: string;
+  password: string; // kept only if you truly need it later; otherwise set to ""
+  role: "product_owner" | "global_admin" | "internal_user" | "external_guest";
+  timestamp: number;
+};
+
 export default function App() {
-  // Check URL parameters for initial view
-  const urlParams = new URLSearchParams(window.location.search);
-  const viewParam = urlParams.get("view");
+  const [role, setRole] = useState<Role>(() => {
+    if (typeof window === "undefined") return "admin";
+    const viewParam = new URLSearchParams(window.location.search).get("view");
+    return viewParam === "vendor" ? "vendor" : "admin";
+  });
 
-  const initialRole: "admin" | "vendor" = viewParam === "vendor" ? "vendor" : "admin";
-  const initialView: View = viewParam === "vendor" ? "vendor-login" : "admin-login";
-
-  const [role, setRole] = useState<"admin" | "vendor">(initialRole);
-  const [view, setView] = useState<View>(initialView);
+  const [view, setView] = useState<View>(() => {
+    if (typeof window === "undefined") return "admin-login";
+    const viewParam = new URLSearchParams(window.location.search).get("view");
+    return viewParam === "vendor" ? "vendor-login" : "admin-login";
+  });
 
   const [auction, setAuction] = useState<any>(null);
   const [vendorSession, setVendorSession] = useState<any>(null);
-  const [adminSession, setAdminSession] = useState<any>(null);
+  const [adminSession, setAdminSession] = useState<AdminSession | null>(null);
 
   const [initialized, setInitialized] = useState(false);
 
   useEffect(() => {
-    initializeApp();
+    void initializeApp();
 
-    // Set up automatic backups every 15 minutes
-    const stopAutoBackup = setupAutoBackup(15);
+    // Auto-backups every 15 minutes (client-side safety net)
+    const backupInterval = window.setInterval(() => {
+      try {
+        void createBackup();
+      } catch (err) {
+        console.error("[App] Auto-backup error:", err);
+      }
+    }, 15 * 60 * 1000);
 
-    // Set up data loss monitoring
+    // Data loss monitoring (returns cleanup)
     const stopMonitoring = setupDataMonitoring();
 
-    // Global error handlers for debugging (matches your Figma logic)
+    // Global error handlers (suppress noisy websocket-ish errors)
     const handleError = (event: ErrorEvent) => {
       const errorMessage = event.message || "";
       const errorStr = event.error ? String(event.error) : "";
@@ -75,15 +95,15 @@ export default function App() {
         "websocket",
         "ws://",
         "wss://",
-        "Failed to execute 'send' on 'WebSocket'",
-        "Connection is not open",
-        "ResizeObserver loop limit exceeded"
+        "failed to execute 'send' on 'websocket'",
+        "connection is not open",
+        "resizeobserver loop limit exceeded",
       ];
 
       const isNonCritical = nonCriticalErrors.some(
         (pattern) =>
           errorMessage.toLowerCase().includes(pattern.toLowerCase()) ||
-          errorStr.toLowerCase().includes(pattern.toLowerCase())
+          errorStr.toLowerCase().includes(pattern.toLowerCase()),
       );
 
       if (isNonCritical) {
@@ -97,7 +117,7 @@ export default function App() {
         filename: event.filename,
         lineno: event.lineno,
         colno: event.colno,
-        error: event.error
+        error: event.error,
       });
     };
 
@@ -110,12 +130,12 @@ export default function App() {
         "websocket",
         "ws://",
         "wss://",
-        "Failed to execute 'send' on 'WebSocket'",
-        "Connection is not open"
+        "failed to execute 'send' on 'websocket'",
+        "connection is not open",
       ];
 
       const isNonCritical = nonCriticalPatterns.some((pattern) =>
-        reasonStr.toLowerCase().includes(pattern.toLowerCase())
+        reasonStr.toLowerCase().includes(pattern.toLowerCase()),
       );
 
       if (isNonCritical) {
@@ -131,7 +151,7 @@ export default function App() {
     window.addEventListener("unhandledrejection", handleUnhandledRejection);
 
     return () => {
-      stopAutoBackup();
+      window.clearInterval(backupInterval);
       stopMonitoring();
       window.removeEventListener("error", handleError);
       window.removeEventListener("unhandledrejection", handleUnhandledRejection);
@@ -139,7 +159,7 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const initializeApp = async () => {
+  const initializeApp = async (): Promise<void> => {
     try {
       console.log("═══════════════════════════════════════════════════════════");
       console.log("🚀 Speed Sourcing Portal - Local Mode");
@@ -153,29 +173,19 @@ export default function App() {
       await apiMigrateInvites();
       console.log("[App] Invite migration complete");
 
-      console.log("[App] Checking data integrity...");
-      const integrity = await checkDataIntegrity();
-      console.log("[App] Data integrity check:", integrity);
-
-      if (integrity.issues.length > 0) {
-        console.warn("[App] ⚠️ Data integrity issues detected:", integrity.issues);
-        const realIssues = integrity.issues.filter((issue: string) => !issue.includes("No admin accounts found"));
-        realIssues.forEach((issue: string) => toast.warning(issue, { duration: 5000 }));
-      }
-
       console.log("[App] Creating initial backup...");
       await createBackup();
 
       setInitialized(true);
       console.log("[App] ✅ Initialization complete!");
     } catch (error) {
-      console.error("Initialization error:", error);
+      console.error("[App] Initialization error:", error);
       toast.error("Failed to initialize app. Check console for details.");
       setInitialized(true);
     }
   };
 
-  const handleRoleChange = (newRole: "admin" | "vendor") => {
+  const handleRoleChange = (newRole: Role) => {
     setRole(newRole);
 
     if (newRole === "admin") {
@@ -191,18 +201,22 @@ export default function App() {
     }
   };
 
-  const handleAdminLogin = async (email: string, name: string, password: string, isNewAccount: boolean) => {
+  const handleAdminLogin = async (
+    email: string,
+    name: string,
+    password: string,
+    isNewAccount: boolean,
+  ): Promise<void> => {
     try {
       let admin: Admin | null = null;
 
       if (isNewAccount) {
         const isEmersonEmail = email.toLowerCase().endsWith("@emerson.com");
-        const role = isEmersonEmail ? "internal_user" : "external_guest";
-        admin = await createAdminAccount(email, password, name, role);
+        const roleForNew = isEmersonEmail ? "internal_user" : "external_guest";
+        admin = await createAdminAccount(email, password, name, roleForNew);
         toast.success("Account created successfully!");
       } else {
-        admin = await validateAdminLogin(email, password);
-        if (!admin) {
+          admin = await validateAdmin(email, password);        if (!admin) {
           toast.error("Invalid email or password");
           return;
         }
@@ -214,21 +228,15 @@ export default function App() {
         return;
       }
 
-      const session = {
+      const nextSession: AdminSession = {
         email: admin.email,
         name: admin.company_name,
-        password: "", // don't store password
+        password: "", // do not store password
         role: admin.role,
-        timestamp: Date.now()
+        timestamp: Date.now(),
       };
 
-      setAdminSession(session);
-
-      if (admin.role === "external_guest") {
-        toast.success(isNewAccount ? "Welcome, Emerson Guest" : "Welcome back, Emerson Guest");
-      } else {
-        toast.success(isNewAccount ? `Welcome, ${admin.company_name}` : `Welcome back, ${admin.company_name}`);
-      }
+      setAdminSession(nextSession);
 
       if (admin.role === "product_owner" || admin.role === "global_admin") {
         setView("management-dashboard");
@@ -236,19 +244,19 @@ export default function App() {
         setView("admin-setup");
       }
     } catch (error: any) {
-      console.error("Admin auth error:", error);
-      toast.error(error.message || "Failed to authenticate");
+      console.error("[App] Admin auth error:", error);
+      toast.error(error?.message || "Failed to authenticate");
     }
   };
 
-  const handleAdminLogout = () => {
+  const handleAdminLogout = (): void => {
     setAdminSession(null);
     setAuction(null);
     setView("admin-login");
     toast.info("Logged out successfully");
   };
 
-  const handleNavigate = (target: string) => {
+  const handleNavigate = (target: string): void => {
     if (target === "all-auctions") {
       if (!adminSession) {
         setView("admin-login");
@@ -256,21 +264,30 @@ export default function App() {
       } else {
         setView("all-auctions");
       }
-    } else if (target === "accounts") {
+      return;
+    }
+
+    if (target === "accounts") {
       if (!adminSession) {
         setView("admin-login");
         toast.info("Please log in to view accounts");
       } else {
         setView("accounts");
       }
-    } else if (target === "management-dashboard") {
+      return;
+    }
+
+    if (target === "management-dashboard") {
       if (!adminSession) {
         setView("admin-login");
         toast.info("Please log in to access management dashboard");
       } else {
         setView("management-dashboard");
       }
-    } else if (target === "manage-global-admins") {
+      return;
+    }
+
+    if (target === "manage-global-admins") {
       if (!adminSession) {
         setView("admin-login");
         toast.info("Please log in to access this page");
@@ -279,7 +296,10 @@ export default function App() {
       } else {
         setView("manage-global-admins");
       }
-    } else if (target === "messaging-center") {
+      return;
+    }
+
+    if (target === "messaging-center") {
       if (!adminSession) {
         setView("admin-login");
         toast.info("Please log in to access messaging");
@@ -291,54 +311,54 @@ export default function App() {
     }
   };
 
-  const handleAuctionComplete = async () => {
-    const auctions = await apiGetAuctions(adminSession?.email);
-
-    if (auctions && auctions.length > 0) {
-      const latestAuction = auctions[auctions.length - 1];
-      setAuction(latestAuction);
-      setView("admin-dashboard");
+  const handleAuctionComplete = async (): Promise<void> => {
+    try {
+      const auctions = await apiGetAuctions();
+      if (auctions && auctions.length > 0) {
+        const latestAuction = auctions[auctions.length - 1];
+        setAuction(latestAuction);
+        setView("admin-dashboard");
+      }
+    } catch (err) {
+      console.error("[App] Error after auction complete:", err);
+      toast.error("Could not load latest auction");
     }
-
-    setAdminSession(null);
   };
 
-  const handleVendorLogin = (session: any, auctionId: string) => {
-    setVendorSession(session);
-    loadAuction(auctionId);
+  const handleVendorLogin = (sess: any, auctionId: string): void => {
+    setVendorSession(sess);
+    void loadAuction(auctionId);
     setView("vendor-dashboard");
   };
 
-  const handleVendorLogout = () => {
+  const handleVendorLogout = (): void => {
     setVendorSession(null);
     setView("vendor-login");
     setAuction(null);
   };
 
-  const loadAuction = async (auctionId: string) => {
+  const loadAuction = async (auctionId: string): Promise<void> => {
     try {
       const loadedAuction = await apiGetAuction(auctionId);
       setAuction(loadedAuction);
     } catch (error) {
-      console.error("Error loading auction:", error);
+      console.error("[App] Error loading auction:", error);
       toast.error("Failed to load auction");
     }
   };
 
-  const handleSelectAuction = (selectedAuction: any) => {
+  const handleSelectAuction = (selectedAuction: any): void => {
     setAuction(selectedAuction);
-    if (role === "admin") {
-      setView("admin-dashboard");
+    if (role === "admin") setView("admin-dashboard");
+  };
+
+  const handleRefresh = (): void => {
+    if (auction?.id) {
+      void loadAuction(auction.id);
     }
   };
 
-  const handleRefresh = () => {
-    if (auction) {
-      loadAuction(auction.id);
-    }
-  };
-
-  const handleResetAuction = async () => {
+  const handleResetAuction = (): void => {
     setAuction(null);
 
     if (adminSession?.role === "product_owner" || adminSession?.role === "global_admin") {
@@ -350,7 +370,7 @@ export default function App() {
     toast.success("Exited current auction");
   };
 
-  const handleCreateAuction = () => {
+  const handleCreateAuction = (): void => {
     setAdminSession(null);
     setView("admin-login");
     toast.info("Please log in to create a new auction");
@@ -411,7 +431,6 @@ export default function App() {
             }}
             onSelectAuction={handleSelectAuction}
             adminEmail={adminSession.email}
-            adminPassword={adminSession.password}
             userRole={adminSession.role}
           />
         )}
@@ -432,21 +451,22 @@ export default function App() {
 
         {view === "management-dashboard" && adminSession && (
           <ManagementDashboard
-            adminEmail={adminSession.email}
-            adminPassword={adminSession.password}
             userRole={adminSession.role}
             onSelectAuction={handleSelectAuction}
           />
         )}
 
-        {view === "manage-global-admins" && adminSession && adminSession.role === "product_owner" && (
+        {view === "manage-global-admins" && adminSession?.role === "product_owner" && (
           <ManageGlobalAdmins onBack={() => setView("management-dashboard")} />
         )}
 
         {view === "messaging-center" &&
           adminSession &&
           (adminSession.role === "product_owner" || adminSession.role === "global_admin") && (
-            <MessagingCenter onBack={() => setView("management-dashboard")} adminRole={adminSession.role} />
+            <MessagingCenter
+              onBack={() => setView("management-dashboard")}
+              adminRole={adminSession.role}
+            />
           )}
 
         {view === "debug-storage" && <DebugStorage />}
@@ -456,4 +476,3 @@ export default function App() {
     </ThemeProvider>
   );
 }
-``

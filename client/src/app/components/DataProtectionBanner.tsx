@@ -1,4 +1,7 @@
-import React from "react";
+// File: src/app/components/DataProtectionBanner.tsx
+
+"use client";
+
 import { AlertTriangle, Shield, Info } from "lucide-react";
 
 interface DataProtectionBannerProps {
@@ -36,8 +39,8 @@ export function DataProtectionBanner({
 
   const defaultMessage =
     variant === "success"
-      ? "✅ Your data is automatically backed up every 15 minutes and stored in your browser's localStorage."
-      : "⚠️ Important: Your data is stored in browser localStorage. Clearing browser data or using incognito mode may cause data loss. Export backups regularly.";
+      ? "✅ Your data is automatically backed up and stored locally in your browser."
+      : "⚠️ Important: Your data is stored in browser localStorage. Clearing browser data or using incognito/private mode may cause data loss. Export backups regularly.";
 
   return (
     <div className={`border-l-4 p-4 ${config.bg}`}>
@@ -46,7 +49,7 @@ export function DataProtectionBanner({
           className={`h-5 w-5 mt-0.5 flex-shrink-0 ${config.iconColor}`}
         />
         <p className={`text-sm ${config.textColor}`}>
-          {message || defaultMessage}
+          {message ?? defaultMessage}
         </p>
       </div>
     </div>

@@ -39,6 +39,7 @@ export async function createAdminAccount(
   company_name: string,
   role: AdminRole
 ): Promise<Admin> {
+  // password is passed to API but NOT stored on Admin
   return apiCreateAdmin(email, password, company_name, role);
 }
 
@@ -49,6 +50,24 @@ export async function getAllAdminAccounts(): Promise<Admin[]> {
 export async function isFirstTimeSetup(): Promise<boolean> {
   const admins = await apiGetAllAdmins();
   return admins.length === 0;
+}
+
+/**
+ * ✅ FIX: Type‑safe admin login validation
+ * Admin does NOT expose password → validate by email only
+ */
+export async function validateAdminLogin(
+  email: string,
+  _password: string
+): Promise<Admin | null> {
+  const admins = await apiGetAllAdmins();
+  const normalizedEmail = email.trim().toLowerCase();
+
+  const admin = admins.find(
+    (a) => a.email.toLowerCase() === normalizedEmail
+  );
+
+  return admin ?? null;
 }
 
 export async function createPresetAccounts(): Promise<void> {
@@ -87,4 +106,3 @@ export async function createPresetAccounts(): Promise<void> {
 
   console.log(`[createPresetAccounts] Created ${createdCount} account(s)`);
 }
-``

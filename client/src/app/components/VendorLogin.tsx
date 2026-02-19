@@ -1,8 +1,19 @@
-import React, { useState } from "react";
+// File: src/app/components/VendorLogin.tsx
+
+"use client";
+
+import { useState } from "react";
+import type { FormEvent } from "react";
 import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
 import { Label } from "@/app/components/ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/app/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/app/components/ui/card";
 import { toast } from "sonner";
 import { apiValidateVendorToken } from "@/lib/api";
 import { ThemeToggle } from "@/app/components/ThemeToggle";
@@ -18,42 +29,28 @@ export function VendorLogin({ onLogin }: VendorLoginProps) {
   const [loading, setLoading] = useState(false);
   const [showDebug, setShowDebug] = useState(false);
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleLogin = async (e: FormEvent): Promise<void> => {
     e.preventDefault();
     setLoading(true);
 
     try {
-      // Trim whitespace from inputs
       const trimmedEmail = email.trim().toLowerCase();
       const trimmedInviteCode = inviteCode.trim();
 
-      console.log("Attempting login with:", { email: trimmedEmail, invite_code: trimmedInviteCode });
-
-      // Validate vendor token (invite code)
       const result = await apiValidateVendorToken(trimmedInviteCode);
 
       if (!result) {
-        console.error("Validation failed - invite code not found in system");
         toast.error("Invalid invite code. Please check your invite code and try again.");
-        throw new Error("Invalid invite code");
+        return;
       }
 
-      console.log("[VendorLogin] Validation successful - invite found:", {
-        email: result.invite.vendor_email,
-        company: result.invite.vendor_company,
-        auction_id: result.auction.id,
-      });
-
-      // Verify email matches (case-insensitive)
       if (result.invite.vendor_email.toLowerCase() !== trimmedEmail) {
         toast.error("Email does not match invite code");
-        throw new Error("Email mismatch");
+        return;
       }
 
-      console.log("Login successful:", result);
       toast.success("Login successful!");
 
-      // Create session object
       const session = {
         session_token: trimmedInviteCode,
         vendor_email: trimmedEmail,
@@ -62,9 +59,9 @@ export function VendorLogin({ onLogin }: VendorLoginProps) {
       };
 
       onLogin(session, result.auction.id);
-    } catch (error: any) {
-      console.error("Login error:", error);
-      // Error already shown above
+    } catch (error) {
+      console.error("[VendorLogin] Login error:", error);
+      toast.error("Login failed. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -76,7 +73,8 @@ export function VendorLogin({ onLogin }: VendorLoginProps) {
         <Button
           variant="outline"
           size="sm"
-          onClick={() => setShowDebug(!showDebug)}
+          onClick={() => setShowDebug((v) => !v)}
+          type="button"
         >
           {showDebug ? "Hide" : "Show"} Debug
         </Button>

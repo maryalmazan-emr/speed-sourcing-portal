@@ -1,130 +1,186 @@
 /**
  * Data Persistence and Backup Utilities
- * Ensures data is never lost and can be recovered
+ *
+ * Purpose:
+ * - Detect accidental local data loss
+ * - Create rolling local backups
+ * - Restore data from backups or imported files
+ *
+ * IMPORTANT:
+ * - Azure SQL is the source of truth
+ * - This file ONLY handles client-side safety & recovery
+ * - No Supabase, no server dependencies
  */
 
-import { kv } from "./supabase";
+import { kv } from "@/lib/kv";
 import { toast } from "sonner";
 
-const BACKUP_PREFIX = "speedsourcing_backup:";
-const LAST_BACKUP_KEY = "speedsourcing:last_backup_timestamp";
+/* ------------------------------------------------------------------ */
+/* Constants                                                          */
+/* ------------------------------------------------------------------ */
+
+const BACKUP_PREFIX = "speedsourcing:backup:";
 const DATA_HASH_KEY = "speedsourcing:data_hash";
 
+/* ------------------------------------------------------------------ */
+/* Types                                                              */
+/* ------------------------------------------------------------------ */
+
 export interface BackupData {
-  timestamp: string;
-  admins: any[];
-  auctions: any[];
-  invites: any[];
-  bids: any[];
+  timestamp: number;
+  admins: unknown[];
+  auctions: unknown[];
+  invites: unknown[];
+  bids: unknown[];
 }
 
-function generateDataHash(data: any): string {
-  return btoa(JSON.stringify(data)).substring(0, 32);
+/* ------------------------------------------------------------------ */
+/* Helpers                                                            */
+/* ------------------------------------------------------------------ */
+
+function generateDataHash(data: unknown): string {
+  try {
+    return btoa(JSON.stringify(data)).slice(0, 32);
+  } catch {
+    return "";
+  }
 }
+
+/* ------------------------------------------------------------------ */
+/* Data monitoring (loss detection)                                   */
+/* ------------------------------------------------------------------ */
 
 export function setupDataMonitoring(): () => void {
   let lastDataHash = localStorage.getItem(DATA_HASH_KEY) || "";
 
-  const checkInterval = setInterval(async () => {
+  const interval = setInterval(async () => {
     try {
-      const admins = (await kv.get("admins")) || [];
-      const auctions = (await kv.get("auctions")) || [];
-      const invites = (await kv.get("invites")) || [];
-      const bids = (await kv.get("bids")) || [];
+      const admins = (await kv.get("admins")) ?? [];
+      const auctions = (await kv.get("auctions")) ?? [];
+      const invites = (await kv.get("invites")) ?? [];
+      const bids = (await kv.get("bids")) ?? [];
 
       const currentData = { admins, auctions, invites, bids };
       const currentHash = generateDataHash(currentData);
 
-      if (lastDataHash && lastDataHash !== currentHash) {
-        const emptyHash = generateDataHash({
-          admins: [],
-          auctions: [],
-          invites: [],
-          bids: [],
-        });
+      const emptyHash = generateDataHash({
+        admins: [],
+        auctions: [],
+        invites: [],
+        bids: [],
+      });
 
-        if (lastDataHash !== emptyHash && currentHash === emptyHash) {
-          toast.error(
-            "Data loss detected! Open Debug Storage to restore from backup.",
-            { duration: 10000 }
-          );
-        }
+      if (
+        lastDataHash &&
+        lastDataHash !== currentHash &&
+        lastDataHash !== emptyHash &&
+        currentHash === emptyHash
+      ) {
+        toast.error(
+          "⚠️ Data loss detected! Use the recovery banner to restore from backup.",
+          { duration: 10000 }
+        );
       }
 
       lastDataHash = currentHash;
       localStorage.setItem(DATA_HASH_KEY, currentHash);
-    } catch (error) {
-      console.error("[DataProtection] Monitoring error:", error);
+    } catch (err) {
+      console.error("[dataProtection] Monitoring error:", err);
     }
   }, 5000);
 
-  return () => clearInterval(checkInterval);
+  return () => clearInterval(interval);
 }
+
+/* ------------------------------------------------------------------ */
+/* Backup creation                                                    */
+/* ------------------------------------------------------------------ */
 
 export async function createBackup(): Promise<BackupData> {
   const backup: BackupData = {
-    timestamp: new Date().toISOString(),
-    admins: (await kv.get("admins")) || [],
-    auctions: (await kv.get("auctions")) || [],
-    invites: (await kv.get("invites")) || [],
-    bids: (await kv.get("bids")) || [],
+    timestamp: Date.now(),
+    admins: (await kv.get("admins")) ?? [],
+    auctions: (await kv.get("auctions")) ?? [],
+    invites: (await kv.get("invites")) ?? [],
+    bids: (await kv.get("bids")) ?? [],
   };
 
-  const key = `${BACKUP_PREFIX}${Date.now()}`;
-  localStorage.setItem(key, JSON.stringify(backup));
-  localStorage.setItem(LAST_BACKUP_KEY, backup.timestamp);
+  localStorage.setItem(
+    `${BACKUP_PREFIX}${backup.timestamp}`,
+    JSON.stringify(backup)
+  );
 
-  await cleanOldBackups();
+  cleanOldBackups();
   return backup;
 }
 
+/* ------------------------------------------------------------------ */
+/* Backup retrieval                                                   */
+/* ------------------------------------------------------------------ */
+
 export function getAllBackups(): BackupData[] {
-  const backups: BackupData[] = [];
-
-  for (let i = 0; i < localStorage.length; i++) {
-    const key = localStorage.key(i);
-    if (key?.startsWith(BACKUP_PREFIX)) {
+  return Object.keys(localStorage)
+    .filter((key) => key.startsWith(BACKUP_PREFIX))
+    .map((key) => {
       try {
-        backups.push(JSON.parse(localStorage.getItem(key) || ""));
-      } catch {}
-    }
-  }
-
-  return backups.sort(
-    (a, b) =>
-      new Date(b.timestamp).getTime() -
-      new Date(a.timestamp).getTime()
-  );
+        return JSON.parse(localStorage.getItem(key)!) as BackupData;
+      } catch {
+        return null;
+      }
+    })
+    .filter(Boolean)
+    .sort((a, b) => b!.timestamp - a!.timestamp) as BackupData[];
 }
 
 export function getLatestBackup(): BackupData | null {
   const backups = getAllBackups();
-  return backups.length ? backups[0] : null;
+  return backups.length > 0 ? backups[0] : null;
 }
+
+/* ------------------------------------------------------------------ */
+/* Backup restore                                                     */
+/* ------------------------------------------------------------------ */
 
 export async function restoreFromBackup(backup: BackupData): Promise<void> {
-  await kv.set("admins", backup.admins);
-  await kv.set("auctions", backup.auctions);
-  await kv.set("invites", backup.invites);
-  await kv.set("bids", backup.bids);
+  await kv.set("admins", backup.admins ?? []);
+  await kv.set("auctions", backup.auctions ?? []);
+  await kv.set("invites", backup.invites ?? []);
+  await kv.set("bids", backup.bids ?? []);
 }
 
-async function cleanOldBackups(): Promise<void> {
-  const backups = getAllBackups();
-  const toDelete = backups.slice(10);
+/* ------------------------------------------------------------------ */
+/* File import (FIXES YOUR ERROR)                                     */
+/* ------------------------------------------------------------------ */
 
-  for (const backup of toDelete) {
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (key?.startsWith(BACKUP_PREFIX)) {
-        try {
-          const parsed = JSON.parse(localStorage.getItem(key) || "");
-          if (parsed.timestamp === backup.timestamp) {
-            localStorage.removeItem(key);
-            break;
-          }
-        } catch {}
-      }
-    }
+export async function importDataFromFile(file: File): Promise<void> {
+  const text = await file.text();
+  const data = JSON.parse(text);
+
+  if (
+    typeof data !== "object" ||
+    data === null ||
+    !("admins" in data) ||
+    !("auctions" in data)
+  ) {
+    throw new Error("Invalid backup file format");
+  }
+
+  await kv.set("admins", (data as any).admins ?? []);
+  await kv.set("auctions", (data as any).auctions ?? []);
+  await kv.set("invites", (data as any).invites ?? []);
+  await kv.set("bids", (data as any).bids ?? []);
+}
+
+/* ------------------------------------------------------------------ */
+/* Cleanup                                                            */
+/* ------------------------------------------------------------------ */
+
+function cleanOldBackups(): void {
+  const backups = getAllBackups();
+  const excess = backups.slice(10); // keep latest 10
+
+  for (const backup of excess) {
+    const key = `${BACKUP_PREFIX}${backup.timestamp}`;
+    localStorage.removeItem(key);
   }
 }

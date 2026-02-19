@@ -44,10 +44,6 @@ interface AllAuctionsProps {
   onBack: () => void;
   onSelectAuction: (auction: AuctionLike) => void;
   adminEmail: string;
-
-  // NOTE: Keeping these props so callers don't break, even if unused here.
-  adminPassword: string;
-
   userRole: UserRole;
 }
 
@@ -55,7 +51,6 @@ export function AllAuctions({
   onBack,
   onSelectAuction,
   adminEmail,
-  adminPassword, // intentionally unused (kept for API compatibility with caller)
   userRole,
 }: AllAuctionsProps) {
   const hasGlobalView = hasGlobalAccess(userRole);
@@ -63,14 +58,13 @@ export function AllAuctions({
 
   const [auctions, setAuctions] = useState<AuctionLike[]>([]);
   const [filter, setFilter] = useState<"all" | "active" | "scheduled" | "awarded">(
-    "all",
+    "all"
   );
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     void loadAuctions();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasGlobalView, adminEmail]);
 
   const loadAuctions = async (): Promise<void> => {
@@ -79,7 +73,7 @@ export function AllAuctions({
       const allAuctions = (await apiGetAuctions()) as AuctionLike[];
 
       const visibleAuctions = allAuctions.filter(
-        (auction) => hasGlobalView || auction.created_by_email === adminEmail,
+        auction => hasGlobalView || auction.created_by_email === adminEmail
       );
 
       setAuctions(visibleAuctions);
@@ -92,9 +86,8 @@ export function AllAuctions({
   };
 
   const handleDeleteAuction = (
-    auctionId: string,
     auctionTitle: string,
-    e: MouseEvent,
+    e: MouseEvent
   ): void => {
     e.stopPropagation();
 
@@ -104,17 +97,18 @@ export function AllAuctions({
     }
 
     const confirmed = window.confirm(
-      `Are you sure you want to permanently delete this auction?\n\n"${auctionTitle}"\n\nThis action cannot be undone.`,
+      `Are you sure you want to permanently delete this auction?\n\n"${auctionTitle}"\n\nThis action cannot be undone.`
     );
 
     if (!confirmed) return;
 
     toast.info(
-      "Deletion is disabled. All auctions are maintained for audit trail compliance.",
+      "Deletion is disabled. All auctions are maintained for audit trail compliance."
     );
   };
 
-  const getShortId = (uuid: string): string => uuid.substring(0, 8).toUpperCase();
+  const getShortId = (uuid: string): string =>
+    uuid.substring(0, 8).toUpperCase();
 
   const getStatusBadge = (auction: AuctionLike) => {
     const now = new Date();
@@ -134,40 +128,42 @@ export function AllAuctions({
     }
 
     if (auction.status === "manually_closed" || endsAt < now) {
-      return <Badge className="bg-[#9fa1a4] text-white border-0">Closed</Badge>;
+      return (
+        <Badge className="bg-[#9fa1a4] text-white border-0">Closed</Badge>
+      );
     }
 
-    return <Badge className="bg-[#004b8d] text-white border-0">Active</Badge>;
+    return (
+      <Badge className="bg-[#004b8d] text-white border-0">Active</Badge>
+    );
   };
 
   const filteredAuctions = useMemo(() => {
-    return auctions.filter((auction) => {
+    return auctions.filter(auction => {
       const now = new Date();
 
       if (filter === "awarded" && !auction.winner_vendor_email) return false;
-      if (filter === "scheduled" && new Date(auction.starts_at) <= now) return false;
+      if (filter === "scheduled" && new Date(auction.starts_at) <= now)
+        return false;
 
       if (
         filter === "active" &&
         (auction.status === "manually_closed" ||
           new Date(auction.ends_at) < now ||
-          Boolean(auction.winner_vendor_email) ||
+          auction.winner_vendor_email ||
           new Date(auction.starts_at) > now)
-      ) {
+      )
         return false;
-      }
 
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
-        const shortId = getShortId(auction.id).toLowerCase();
-
         return (
-          shortId.includes(q) ||
+          getShortId(auction.id).toLowerCase().includes(q) ||
           auction.id.toLowerCase().includes(q) ||
-          (auction.title ?? "").toLowerCase().includes(q) ||
-          (auction.description ?? "").toLowerCase().includes(q) ||
-          (auction.group_site ?? "").toLowerCase().includes(q) ||
-          (auction.requestor ?? "").toLowerCase().includes(q)
+          auction.title?.toLowerCase().includes(q) ||
+          auction.description?.toLowerCase().includes(q) ||
+          auction.group_site?.toLowerCase().includes(q) ||
+          auction.requestor?.toLowerCase().includes(q)
         );
       }
 
@@ -208,45 +204,24 @@ export function AllAuctions({
           <Input
             placeholder="Search by ID, name, description, site, requestor..."
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={e => setSearchQuery(e.target.value)}
             className="pl-10"
           />
         </div>
       </div>
 
       <div className="flex gap-2 mb-6">
-        <Button
-          variant={filter === "all" ? "default" : "outline"}
-          size="sm"
-          onClick={() => setFilter("all")}
-          type="button"
-        >
-          All ({auctions.length})
-        </Button>
-        <Button
-          variant={filter === "active" ? "default" : "outline"}
-          size="sm"
-          onClick={() => setFilter("active")}
-          type="button"
-        >
-          Active
-        </Button>
-        <Button
-          variant={filter === "scheduled" ? "default" : "outline"}
-          size="sm"
-          onClick={() => setFilter("scheduled")}
-          type="button"
-        >
-          Scheduled
-        </Button>
-        <Button
-          variant={filter === "awarded" ? "default" : "outline"}
-          size="sm"
-          onClick={() => setFilter("awarded")}
-          type="button"
-        >
-          Awarded
-        </Button>
+        {(["all", "active", "scheduled", "awarded"] as const).map(f => (
+          <Button
+            key={f}
+            variant={filter === f ? "default" : "outline"}
+            size="sm"
+            onClick={() => setFilter(f)}
+            type="button"
+          >
+            {f.charAt(0).toUpperCase() + f.slice(1)}
+          </Button>
+        ))}
       </div>
 
       {filteredAuctions.length === 0 ? (
@@ -257,7 +232,7 @@ export function AllAuctions({
         </Card>
       ) : (
         <div className="grid gap-4">
-          {filteredAuctions.map((auction) => (
+          {filteredAuctions.map(auction => (
             <Card
               key={auction.id}
               className="cursor-pointer hover:shadow-lg transition-shadow"
@@ -270,49 +245,48 @@ export function AllAuctions({
                       <span className="text-xs font-mono bg-gray-100 px-2 py-1 rounded">
                         ID: {getShortId(auction.id)}
                       </span>
-                      {auction.group_site ? (
+                      {auction.group_site && (
                         <span className="text-xs bg-gray-100 px-2 py-1 rounded">
                           {auction.group_site}
                         </span>
-                      ) : null}
+                      )}
                     </div>
-                    <CardTitle>{auction.title ?? "Untitled Auction"}</CardTitle>
+                    <CardTitle>{auction.title}</CardTitle>
                     <CardDescription className="mt-1 line-clamp-2">
-                      {auction.description ?? ""}
+                      {auction.description}
                     </CardDescription>
                   </div>
 
                   <div className="flex items-center gap-2">
                     {getStatusBadge(auction)}
-                    {canDeleteAuctions ? (
+                    {canDeleteAuctions && (
                       <Button
                         variant="outline"
                         size="sm"
                         className="text-red-600"
-                        onClick={(e) =>
+                        onClick={e =>
                           handleDeleteAuction(
-                            auction.id,
                             auction.title ?? auction.id,
-                            e,
+                            e
                           )
                         }
                         type="button"
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
-                    ) : null}
+                    )}
                   </div>
                 </div>
               </CardHeader>
 
               <CardContent>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                  {auction.requestor ? (
+                  {auction.requestor && (
                     <div>
                       <span className="text-gray-500">Requestor</span>
                       <div className="font-medium">{auction.requestor}</div>
                     </div>
-                  ) : null}
+                  )}
 
                   <div>
                     <span className="text-gray-500">Starts</span>
@@ -328,14 +302,16 @@ export function AllAuctions({
                     </div>
                   </div>
 
-                  {auction.product_details ? (
+                  {auction.product_details && (
                     <div>
-                      <span className="text-gray-500">Part Numbers &amp; Qty</span>
-                      <div className="font-medium">{auction.product_details}</div>
+                      <span className="text-gray-500">Part Numbers & Qty</span>
+                      <div className="font-medium">
+                        {auction.product_details}
+                      </div>
                     </div>
-                  ) : null}
+                  )}
 
-                  {auction.winner_vendor_email ? (
+                  {auction.winner_vendor_email && (
                     <div className="col-span-2">
                       <span className="text-gray-500">Winner</span>
                       <div className="flex items-center gap-1 font-medium">
@@ -343,7 +319,7 @@ export function AllAuctions({
                         {auction.winner_vendor_email}
                       </div>
                     </div>
-                  ) : null}
+                  )}
                 </div>
               </CardContent>
             </Card>

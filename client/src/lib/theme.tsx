@@ -1,12 +1,14 @@
-/**
- * Theme Management - Light/Dark Mode
- */
+// File: src/lib/theme.tsx
+// Theme Management - Light/Dark Mode
 
-import React, {
+"use client";
+
+import {
   createContext,
   useContext,
   useEffect,
   useState,
+  type ReactNode,
 } from "react";
 
 type Theme = "light" | "dark";
@@ -16,32 +18,35 @@ interface ThemeContextType {
   toggleTheme: () => void;
 }
 
-const ThemeContext = createContext<ThemeContextType | undefined>(
-  undefined
-);
+const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
-export function ThemeProvider({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  const [theme, setTheme] = useState<Theme>(() => {
-    // Check localStorage first
+export function ThemeProvider({ children }: { children: ReactNode }) {
+  const [theme, setTheme] = useState<Theme>("light");
+
+  // Initialize theme on client only (prevents SSR / hydration issues)
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
     const stored = localStorage.getItem("theme") as Theme | null;
-    if (stored === "light" || stored === "dark") return stored;
+    if (stored === "light" || stored === "dark") {
+      setTheme(stored);
+      return;
+    }
 
-    // Fallback to system preference
     if (
       window.matchMedia &&
       window.matchMedia("(prefers-color-scheme: dark)").matches
     ) {
-      return "dark";
+      setTheme("dark");
+    } else {
+      setTheme("light");
     }
+  }, []);
 
-    return "light";
-  });
-
+  // Apply theme + persist
   useEffect(() => {
+    if (typeof document === "undefined") return;
+
     const root = document.documentElement;
 
     if (theme === "dark") {
@@ -54,7 +59,7 @@ export function ThemeProvider({
   }, [theme]);
 
   const toggleTheme = () => {
-    setTheme(prev => (prev === "light" ? "dark" : "light"));
+    setTheme((prev) => (prev === "light" ? "dark" : "light"));
   };
 
   return (

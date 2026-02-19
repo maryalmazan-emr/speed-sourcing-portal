@@ -1,4 +1,7 @@
-import React from "react";
+// File: src/app/components/ThemeToggle.tsx
+
+"use client";
+
 import { Moon, Sun } from "lucide-react";
 import { Button } from "@/app/components/ui/button";
 import { useTheme } from "@/lib/theme";
@@ -13,6 +16,7 @@ export function ThemeToggle() {
       onClick={toggleTheme}
       className="gap-2"
       title={`Switch to ${theme === "light" ? "dark" : "light"} mode`}
+      type="button"
     >
       {theme === "light" ? (
         <>
@@ -28,4 +32,3 @@ export function ThemeToggle() {
     </Button>
   );
 }
-``

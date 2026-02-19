@@ -1,4 +1,8 @@
-import React, { useEffect, useState } from "react";
+// File: src/app/components/Header.tsx
+
+"use client";
+
+import { useEffect, useState } from "react";
 import { Button } from "@/app/components/ui/button";
 import {
   DropdownMenu,
@@ -123,9 +127,8 @@ export function Header({
               className={`px-6 py-2 rounded-md font-mono text-base font-semibold ${
                 timeLeft === "Winner selected"
                   ? "bg-[#00573d] text-white"
-                  : timeLeft === "Auction ended"
-                  ? "bg-gray-100/50 dark:bg-gray-700/50 text-gray-700 dark:text-gray-300 border"
-                  : timeLeft === "Auction not started"
+                  : timeLeft === "Auction ended" ||
+                    timeLeft === "Auction not started"
                   ? "bg-gray-100/50 dark:bg-gray-700/50 text-gray-700 dark:text-gray-300 border"
                   : isWarning
                   ? "bg-[#d4183d] text-white animate-pulse"
@@ -246,4 +249,3 @@ export function Header({
     </header>
   );
 }
-``

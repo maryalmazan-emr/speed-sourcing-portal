@@ -1,18 +1,22 @@
-import React, { useState, useEffect } from "react";
+// File: src/app/components/DebugStorage.tsx
+
+"use client";
+
+import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/app/components/ui/card";
 import { Button } from "@/app/components/ui/button";
-import { kv } from "@/lib/backend";
+import { kv } from "@/lib/kv";
 
 export function DebugStorage() {
-  const [debug, setDebug] = useState<any>({});
+  const [debug, setDebug] = useState<Record<string, unknown>>({});
 
-  const refreshDebug = async () => {
+  const refreshDebug = async (): Promise<void> => {
     const invites = await kv.get("invites");
     const auctions = await kv.get("auctions");
     const admins = await kv.get("admins");
     const bids = await kv.get("bids");
 
-    const allKeys = Object.keys(localStorage).filter(k =>
+    const allKeys = Object.keys(localStorage).filter((k) =>
       k.startsWith("speedsourcing:")
     );
 
@@ -30,7 +34,7 @@ export function DebugStorage() {
   };
 
   useEffect(() => {
-    refreshDebug();
+    void refreshDebug();
   }, []);
 
   return (
@@ -40,7 +44,7 @@ export function DebugStorage() {
       </CardHeader>
 
       <CardContent>
-        <Button onClick={refreshDebug} className="mb-4">
+        <Button onClick={refreshDebug} className="mb-4" type="button">
           Refresh
         </Button>
 
