@@ -1,4 +1,6 @@
-import { apiCreateAdmin, apiValidateAdmin, apiGetAllAdmins } from "./api";
+// File: src/lib/adminAuth.ts
+
+import { apiCreateAdmin, apiGetAllAdmins } from "./api";
 import type { Admin } from "./backend";
 
 export type AdminRole =
@@ -34,23 +36,15 @@ export function canDelete(role: AdminRole): boolean {
 export async function createAdminAccount(
   email: string,
   password: string,
-  company_name: string, 
+  company_name: string,
   role: AdminRole
 ): Promise<Admin> {
   return apiCreateAdmin(email, password, company_name, role);
 }
 
-export async function validateAdminLogin(
-  email: string,
-  password: string
-): Promise<Admin | null> {
-  return apiValidateAdmin(email, password);
-}
-
 export async function getAllAdminAccounts(): Promise<Admin[]> {
   return apiGetAllAdmins();
 }
-``
 
 export async function isFirstTimeSetup(): Promise<boolean> {
   const admins = await apiGetAllAdmins();
@@ -61,7 +55,7 @@ export async function createPresetAccounts(): Promise<void> {
   const allAdmins = await apiGetAllAdmins();
   let createdCount = 0;
 
-  if (!allAdmins.some(a => a.email === "mary.owner@emerson.com")) {
+  if (!allAdmins.some((a) => a.email === "mary.owner@emerson.com")) {
     await createAdminAccount(
       "mary.owner@emerson.com",
       "Emerson!",
@@ -71,7 +65,7 @@ export async function createPresetAccounts(): Promise<void> {
     createdCount++;
   }
 
-  if (!allAdmins.some(a => a.email === "mary.admin@emerson.com")) {
+  if (!allAdmins.some((a) => a.email === "mary.admin@emerson.com")) {
     await createAdminAccount(
       "mary.admin@emerson.com",
       "Emerson!",
@@ -81,7 +75,7 @@ export async function createPresetAccounts(): Promise<void> {
     createdCount++;
   }
 
-  if (!allAdmins.some(a => a.email === "test.user@emerson.com")) {
+  if (!allAdmins.some((a) => a.email === "test.user@emerson.com")) {
     await createAdminAccount(
       "test.user@emerson.com",
       "Emerson!",
@@ -93,3 +87,4 @@ export async function createPresetAccounts(): Promise<void> {
 
   console.log(`[createPresetAccounts] Created ${createdCount} account(s)`);
 }
+``
