@@ -20,11 +20,14 @@ import { DebugStorage } from "@/app/components/DebugStorage";
 import { Toaster } from "@/app/components/ui/sonner";
 import { toast } from "sonner";
 
-import { createAdminAccount, validateAdmin, createPresetAccounts } from "@/lib/adminAuth";
+import {
+  createAdminAccount,
+  validateAdmin,
+  createPresetAccounts,
+} from "@/lib/adminAuth";
 import { apiGetAuctions, apiGetAuction, apiMigrateInvites } from "@/lib/api";
 import type { Admin } from "@/lib/backend";
 
-import { ThemeProvider } from "@/lib/theme";
 import { createBackup, setupDataMonitoring } from "@/lib/dataProtection";
 
 type View =
@@ -216,7 +219,8 @@ export default function App() {
         admin = await createAdminAccount(email, password, name, roleForNew);
         toast.success("Account created successfully!");
       } else {
-          admin = await validateAdmin(email, password);        if (!admin) {
+        admin = await validateAdmin(email, password);
+        if (!admin) {
           toast.error("Invalid email or password");
           return;
         }
@@ -303,7 +307,10 @@ export default function App() {
       if (!adminSession) {
         setView("admin-login");
         toast.info("Please log in to access messaging");
-      } else if (adminSession.role !== "product_owner" && adminSession.role !== "global_admin") {
+      } else if (
+        adminSession.role !== "product_owner" &&
+        adminSession.role !== "global_admin"
+      ) {
         toast.error("Only Product Owners and Global Administrators can access messaging");
       } else {
         setView("messaging-center");
@@ -387,92 +394,91 @@ export default function App() {
   }
 
   return (
-    <ThemeProvider>
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors">
-        {view !== "vendor-login" && view !== "admin-login" && (
-          <Header
-            auction={view === "admin-dashboard" || view === "vendor-dashboard" ? auction : null}
-            role={role}
-            onRoleChange={handleRoleChange}
-            onNavigate={handleNavigate}
-            onResetAuction={role === "admin" ? handleResetAuction : undefined}
-            onCreateAuction={role === "admin" ? handleCreateAuction : undefined}
-            onAdminLogout={role === "admin" && adminSession ? handleAdminLogout : undefined}
-            currentUser={adminSession?.email}
-            adminRole={adminSession?.role}
-            vendorEmail={vendorSession?.vendor_email}
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors">
+      {view !== "vendor-login" && view !== "admin-login" && (
+        <Header
+          auction={view === "admin-dashboard" || view === "vendor-dashboard" ? auction : null}
+          role={role}
+          onRoleChange={handleRoleChange}
+          onNavigate={handleNavigate}
+          onResetAuction={role === "admin" ? handleResetAuction : undefined}
+          onCreateAuction={role === "admin" ? handleCreateAuction : undefined}
+          onAdminLogout={role === "admin" && adminSession ? handleAdminLogout : undefined}
+          currentUser={adminSession?.email}
+          adminRole={adminSession?.role}
+          vendorEmail={vendorSession?.vendor_email}
+        />
+      )}
+
+      {view === "admin-login" && <AdminLogin onLogin={handleAdminLogin} />}
+
+      {view === "admin-setup" && adminSession && (
+        <AdminSetup onComplete={handleAuctionComplete} adminSession={adminSession} />
+      )}
+
+      {view === "admin-dashboard" && auction && (
+        <AdminDashboard
+          auction={auction}
+          onRefresh={handleRefresh}
+          adminRole={adminSession?.role}
+        />
+      )}
+
+      {view === "vendor-login" && <VendorLogin onLogin={handleVendorLogin} />}
+
+      {view === "vendor-dashboard" && auction && vendorSession && (
+        <VendorDashboard auction={auction} session={vendorSession} onLogout={handleVendorLogout} />
+      )}
+
+      {view === "all-auctions" && adminSession && (
+        <AllAuctions
+          onBack={() => {
+            if (adminSession.role === "product_owner" || adminSession.role === "global_admin") {
+              setView("management-dashboard");
+            } else {
+              setView(auction ? "admin-dashboard" : "admin-setup");
+            }
+          }}
+          onSelectAuction={handleSelectAuction}
+          adminEmail={adminSession.email}
+          userRole={adminSession.role}
+        />
+      )}
+
+      {view === "accounts" && adminSession && (
+        <Accounts
+          onBack={() => {
+            if (adminSession.role === "product_owner" || adminSession.role === "global_admin") {
+              setView("management-dashboard");
+            } else {
+              setView(auction ? "admin-dashboard" : "admin-setup");
+            }
+          }}
+          adminEmail={adminSession.email}
+          userRole={adminSession.role}
+        />
+      )}
+
+      {view === "management-dashboard" && adminSession && (
+        <ManagementDashboard userRole={adminSession.role} onSelectAuction={handleSelectAuction} />
+      )}
+
+      {view === "manage-global-admins" && adminSession?.role === "product_owner" && (
+        <ManageGlobalAdmins onBack={() => setView("management-dashboard")} />
+      )}
+
+      {view === "messaging-center" &&
+        adminSession &&
+        (adminSession.role === "product_owner" || adminSession.role === "global_admin") && (
+          <MessagingCenter
+            onBack={() => setView("management-dashboard")}
+            adminRole={adminSession.role}
           />
         )}
 
-        {view === "admin-login" && <AdminLogin onLogin={handleAdminLogin} />}
+      {view === "debug-storage" && <DebugStorage />}
 
-        {view === "admin-setup" && adminSession && (
-          <AdminSetup onComplete={handleAuctionComplete} adminSession={adminSession} />
-        )}
-
-        {view === "admin-dashboard" && auction && (
-          <AdminDashboard auction={auction} onRefresh={handleRefresh} adminRole={adminSession?.role} />
-        )}
-
-        {view === "vendor-login" && <VendorLogin onLogin={handleVendorLogin} />}
-
-        {view === "vendor-dashboard" && auction && vendorSession && (
-          <VendorDashboard auction={auction} session={vendorSession} onLogout={handleVendorLogout} />
-        )}
-
-        {view === "all-auctions" && adminSession && (
-          <AllAuctions
-            onBack={() => {
-              if (adminSession.role === "product_owner" || adminSession.role === "global_admin") {
-                setView("management-dashboard");
-              } else {
-                setView(auction ? "admin-dashboard" : "admin-setup");
-              }
-            }}
-            onSelectAuction={handleSelectAuction}
-            adminEmail={adminSession.email}
-            userRole={adminSession.role}
-          />
-        )}
-
-        {view === "accounts" && adminSession && (
-          <Accounts
-            onBack={() => {
-              if (adminSession.role === "product_owner" || adminSession.role === "global_admin") {
-                setView("management-dashboard");
-              } else {
-                setView(auction ? "admin-dashboard" : "admin-setup");
-              }
-            }}
-            adminEmail={adminSession.email}
-            userRole={adminSession.role}
-          />
-        )}
-
-        {view === "management-dashboard" && adminSession && (
-          <ManagementDashboard
-            userRole={adminSession.role}
-            onSelectAuction={handleSelectAuction}
-          />
-        )}
-
-        {view === "manage-global-admins" && adminSession?.role === "product_owner" && (
-          <ManageGlobalAdmins onBack={() => setView("management-dashboard")} />
-        )}
-
-        {view === "messaging-center" &&
-          adminSession &&
-          (adminSession.role === "product_owner" || adminSession.role === "global_admin") && (
-            <MessagingCenter
-              onBack={() => setView("management-dashboard")}
-              adminRole={adminSession.role}
-            />
-          )}
-
-        {view === "debug-storage" && <DebugStorage />}
-
-        <Toaster position="top-center" />
-      </div>
-    </ThemeProvider>
+      <Toaster position="top-center" />
+    </div>
   );
 }

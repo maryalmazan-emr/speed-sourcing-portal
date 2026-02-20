@@ -1,0 +1,25 @@
+{
+  "name": "speed-sourcing-portal-api",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "node --watch --env-file=.env src/index.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.6",
+    "dotenv": "^16.6.1",
+    "express": "^4.22.1",
+    "mssql": "^11.0.1"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/express": "^4.17.25",
+    "@types/mssql": "^9.1.9",
+    "@types/node": "^22.19.11",
+    "typescript": "^5.9.3"
+  }
+}

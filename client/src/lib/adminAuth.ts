@@ -63,12 +63,17 @@ export async function validateAdminLogin(
   const admins = await apiGetAllAdmins();
   const normalizedEmail = email.trim().toLowerCase();
 
-  const admin = admins.find(
-    (a) => a.email.toLowerCase() === normalizedEmail
-  );
+  const admin = admins.find((a) => a.email.toLowerCase() === normalizedEmail);
 
   return admin ?? null;
 }
+
+/**
+ * ✅ Backwards-compatible alias
+ * Some parts of the app import `validateAdmin` (older name).
+ * Keep both to avoid breaking builds.
+ */
+export const validateAdmin = validateAdminLogin;
 
 export async function createPresetAccounts(): Promise<void> {
   const allAdmins = await apiGetAllAdmins();

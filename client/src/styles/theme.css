@@ -1,0 +1,231 @@
+/* File: client/src/styles/theme.css */
+
+@custom-variant dark (&:is(.dark *));
+
+/* =========================
+   Design Tokens (runtime variables)
+   ========================= */
+:root {
+  /* Emerson Brand Colors */
+  --emerson-primary: #00573d;
+  --emerson-primary-hover: #00805a;
+  --emerson-secondary: #004b8d;
+
+  /* Emerson Grey Scale */
+  --grey-light-40: #ffffff;
+  --grey-light-32: #f3f3f3;
+  --grey-light-24: #dedfe0;
+  --grey-light-16: #c9cacc;
+  --grey-light-8: #b4b6b8;
+  --emerson-grey: #9fa1a4;
+  --grey-dark-8: #8a8c90;
+  --grey-dark-16: #75787c;
+  --grey-dark-24: #626467;
+  --grey-dark-32: #4e4f52;
+  --grey-dark-40: #3a3b3d;
+  --grey-dark-48: #262728;
+  --grey-dark-56: #121313;
+  --grey-dark-64: #000000;
+
+  /* Typography */
+  --font-family: "Noto Sans", -apple-system, BlinkMacSystemFont, "Segoe UI",
+    Roboto, sans-serif;
+  --font-size: 16px;
+  --font-weight-light: 300;
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+
+  /* UI Colors - mapped to Emerson palette */
+  --background: var(--grey-light-40);
+  --foreground: var(--grey-dark-48);
+  --card: var(--grey-light-40);
+  --card-foreground: var(--grey-dark-48);
+  --popover: var(--grey-light-40);
+  --popover-foreground: var(--grey-dark-48);
+  --primary: var(--emerson-primary);
+  --primary-foreground: var(--grey-light-40);
+  --secondary: var(--emerson-secondary);
+  --secondary-foreground: var(--grey-light-40);
+  --muted: var(--grey-light-32);
+  --muted-foreground: var(--grey-dark-16);
+  --accent: var(--grey-light-24);
+  --accent-foreground: var(--grey-dark-48);
+  --destructive: #d4183d;
+  --destructive-foreground: var(--grey-light-40);
+  --border: var(--grey-light-24);
+  --input: transparent;
+  --input-background: var(--grey-light-32);
+  --switch-background: var(--grey-light-16);
+  --ring: var(--emerson-primary);
+
+  /* Chart colors */
+  --chart-1: var(--emerson-primary);
+  --chart-2: var(--emerson-secondary);
+  --chart-3: var(--grey-dark-16);
+  --chart-4: var(--emerson-primary-hover);
+  --chart-5: var(--grey-dark-24);
+
+  /* Radius */
+  --radius: 0.375rem;
+
+  /* Container and Grid */
+  --container-max: 1180px;
+  --container-margin: 50px;
+  --grid-columns: 12;
+  --grid-gutter: 10px;
+}
+
+.dark {
+  --background: var(--grey-dark-48);
+  --foreground: var(--grey-light-32);
+  --card: var(--grey-dark-40);
+  --card-foreground: var(--grey-light-32);
+  --popover: var(--grey-dark-40);
+  --popover-foreground: var(--grey-light-32);
+  --primary: var(--emerson-primary-hover);
+  --primary-foreground: var(--grey-light-40);
+  --secondary: var(--emerson-secondary);
+  --secondary-foreground: var(--grey-light-40);
+  --muted: var(--grey-dark-32);
+  --muted-foreground: var(--grey-light-8);
+  --accent: var(--grey-dark-32);
+  --accent-foreground: var(--grey-light-32);
+  --destructive: #d4183d;
+  --destructive-foreground: var(--grey-light-40);
+  --border: var(--grey-dark-32);
+  --input: var(--grey-dark-32);
+  --ring: var(--emerson-primary-hover);
+}
+
+/* =========================
+   Tailwind v4 Theme Variables
+   These determine which utilities exist (bg-background, border-border, etc.)
+   ========================= */
+@theme {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+
+  /* This is the one that fixes border-border */
+  --color-border: var(--border);
+
+  /* This is what outline-ring/50 uses */
+  --color-ring: var(--ring);
+
+  /* Optional radius mapping if you use rounded-* tokens later */
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+/* =========================
+   Base Layer (your @apply now works)
+   ========================= */
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: var(--font-family);
+    margin: 0;
+    min-height: 100vh;
+  }
+
+  html {
+    font-size: var(--font-size);
+    font-family: var(--font-family);
+  }
+
+  h1 {
+    font-size: 2rem;
+    font-weight: var(--font-weight-semibold);
+    line-height: 1.3;
+  }
+
+  h2 {
+    font-size: 1.5rem;
+    font-weight: var(--font-weight-semibold);
+    line-height: 1.4;
+  }
+
+  h3 {
+    font-size: 1.25rem;
+    font-weight: var(--font-weight-medium);
+    line-height: 1.5;
+  }
+
+  h4 {
+    font-size: 1rem;
+    font-weight: var(--font-weight-medium);
+    line-height: 1.5;
+  }
+
+  p {
+    font-size: 1rem;
+    font-weight: var(--font-weight-normal);
+    line-height: 1.6;
+  }
+
+  label {
+    font-size: 0.875rem;
+    font-weight: var(--font-weight-medium);
+    line-height: 1.5;
+  }
+
+  button {
+    font-size: 0.875rem;
+    font-weight: var(--font-weight-medium);
+    line-height: 1.5;
+    font-family: var(--font-family);
+  }
+
+  input,
+  textarea,
+  select {
+    font-size: 0.875rem;
+    font-weight: var(--font-weight-normal);
+    line-height: 1.5;
+    font-family: var(--font-family);
+  }
+}
+
+/* Container utility following Emerson grid system */
+.container-emerson {
+  max-width: var(--container-max);
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: var(--container-margin);
+  padding-right: var(--container-margin);
+}
+
+@media (max-width: 1279px) {
+  .container-emerson {
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
+  }
+}

@@ -12,7 +12,7 @@ import {
   DropdownMenuSeparator,
 } from "@/app/components/ui/dropdown-menu";
 import { Menu, RotateCcw } from "lucide-react";
-import emersonLogo from "figma:asset/cfb5256627e7fcdeba54c066caa0f735f3024eb6.png";
+import logo from "@/assets/logo.png";
 import { getRoleName } from "@/lib/adminAuth";
 import { ThemeToggle } from "@/app/components/ThemeToggle";
 import { NotificationBell } from "@/app/components/NotificationBell";
@@ -112,7 +112,7 @@ export function Header({
       >
         <div className="flex items-center gap-4">
           <img
-            src={emersonLogo}
+            src={logo}
             alt="Emerson Logo"
             className="h-10 w-auto object-contain"
           />
@@ -127,8 +127,7 @@ export function Header({
               className={`px-6 py-2 rounded-md font-mono text-base font-semibold ${
                 timeLeft === "Winner selected"
                   ? "bg-[#00573d] text-white"
-                  : timeLeft === "Auction ended" ||
-                    timeLeft === "Auction not started"
+                  : timeLeft === "Auction ended" || timeLeft === "Auction not started"
                   ? "bg-gray-100/50 dark:bg-gray-700/50 text-gray-700 dark:text-gray-300 border"
                   : isWarning
                   ? "bg-[#d4183d] text-white animate-pulse"
@@ -201,6 +200,7 @@ export function Header({
                   <DropdownMenuItem onClick={() => onNavigate("all-auctions")}>
                     📋 My Auctions
                   </DropdownMenuItem>
+
                   {onResetAuction && (
                     <>
                       <DropdownMenuSeparator />
@@ -210,6 +210,7 @@ export function Header({
                       </DropdownMenuItem>
                     </>
                   )}
+
                   {onCreateAuction && (
                     <>
                       <DropdownMenuSeparator />
@@ -218,6 +219,7 @@ export function Header({
                       </DropdownMenuItem>
                     </>
                   )}
+
                   {onAdminLogout && (
                     <>
                       <DropdownMenuSeparator />

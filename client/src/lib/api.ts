@@ -1,6 +1,7 @@
+// File: src/lib/api.ts
 /**
- * API Layer - .NET backend version
- * Frontend calls your .NET Web API (local now, Azure later)
+ * API Layer - Node + Express backend version
+ * Frontend calls your Node API (local now, Azure later)
  */
 
 import type * as backend from "./backend";
@@ -21,8 +22,13 @@ export async function apiCreateAdmin(
   });
 }
 
+/**
+ * IMPORTANT:
+ * Your Node backend endpoint is POST /api/admin/login (not /api/admins/validate).
+ * This prevents the "Unexpected token '<' ... not valid JSON" issue.
+ */
 export async function apiValidateAdmin(email: string, password: string) {
-  return apiJson<backend.Admin | null>("/api/admins/validate", {
+  return apiJson<backend.Admin | null>("/api/admin/login", {
     method: "POST",
     body: JSON.stringify({ email, password }),
   });
@@ -129,15 +135,10 @@ export async function apiGetBids(auctionId: string) {
   );
 }
 
-export async function apiGetVendorBid(
-  auctionId: string,
-  vendorEmail: string
-) {
+export async function apiGetVendorBid(auctionId: string, vendorEmail: string) {
   const qs = `?vendorEmail=${encodeURIComponent(vendorEmail)}`;
   return apiJson<backend.Bid | null>(
-    `/api/auctions/${encodeURIComponent(
-      auctionId
-    )}/bids/vendor${qs}`
+    `/api/auctions/${encodeURIComponent(auctionId)}/bids/vendor${qs}`
   );
 }
 
@@ -184,9 +185,13 @@ export async function apiSaveSuppliers(suppliers: backend.Supplier[]) {
 
 /**
  * Migration APIs
+ *
+ * IMPORTANT:
+ * Your Node backend stub endpoint is POST /api/invites/migrate
+ * (not /api/migrations/invites).
  */
 export async function apiMigrateInvites() {
-  return apiJson<any>("/api/migrations/invites", { method: "POST" });
+  return apiJson<any>("/api/invites/migrate", { method: "POST" });
 }
 
 /**

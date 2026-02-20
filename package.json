@@ -1,5 +1,6 @@
 {
   "devDependencies": {
+    "@types/react": "^19.2.14",
     "vite-tsconfig-paths": "^6.1.0"
   },
   "dependencies": {

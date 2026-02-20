@@ -1,0 +1,22 @@
+-- Azure SQL schema for Speed Sourcing Portal (minimal)
+-- Run on your Azure SQL database.
+
+CREATE TABLE dbo.Admins (
+  id UNIQUEIDENTIFIER NOT NULL DEFAULT NEWID() PRIMARY KEY,
+  email NVARCHAR(320) NOT NULL UNIQUE,
+  company_name NVARCHAR(255) NOT NULL,
+  role NVARCHAR(50) NOT NULL,
+  created_at DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME()
+);
+
+CREATE TABLE dbo.Auctions (
+  id UNIQUEIDENTIFIER NOT NULL DEFAULT NEWID() PRIMARY KEY,
+  title NVARCHAR(255) NOT NULL,
+  description NVARCHAR(MAX) NOT NULL DEFAULT '',
+  status NVARCHAR(50) NOT NULL DEFAULT 'draft',
+  starts_at DATETIME2 NULL,
+  ends_at DATETIME2 NULL,
+  winner_vendor_email NVARCHAR(320) NULL,
+  created_by_admin_email NVARCHAR(320) NOT NULL,
+  created_at DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME()
+);
