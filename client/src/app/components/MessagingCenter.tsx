@@ -17,7 +17,7 @@ import { Textarea } from "@/app/components/ui/textarea";
 import { ArrowLeft, MessageSquare, Send, Users } from "lucide-react";
 import { toast } from "sonner";
 import { addNotification } from "@/lib/notifications";
-import { getAccounts } from "@/lib/api";
+import { getAccounts } from "@/lib/api/api";
 import { Checkbox } from "@/app/components/ui/checkbox";
 import type { Account } from "@/lib/backend";
 

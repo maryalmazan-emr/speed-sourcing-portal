@@ -15,7 +15,7 @@ import {
   CardTitle,
 } from "@/app/components/ui/card";
 import { toast } from "sonner";
-import { apiValidateVendorToken } from "@/lib/api";
+import { apiValidateVendorToken } from "@/lib/api/api";
 import { ThemeToggle } from "@/app/components/ThemeToggle";
 import { DebugStorage } from "@/app/components/DebugStorage";
 

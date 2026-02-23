@@ -1,7 +1,5 @@
 // File: src/app/components/Header.tsx
 
-"use client";
-
 import { useEffect, useState } from "react";
 import { Button } from "@/app/components/ui/button";
 import {
@@ -17,8 +15,14 @@ import { getRoleName } from "@/lib/adminAuth";
 import { ThemeToggle } from "@/app/components/ThemeToggle";
 import { NotificationBell } from "@/app/components/NotificationBell";
 
+interface Auction {
+  starts_at?: string;
+  ends_at?: string;
+  winner_vendor_email?: string | null;
+}
+
 interface HeaderProps {
-  auction: any | null;
+  auction: Auction | null;
   role: "admin" | "vendor";
   onRoleChange: (role: "admin" | "vendor") => void;
   onNavigate: (view: string) => void;
@@ -42,12 +46,13 @@ export function Header({
   adminRole,
   vendorEmail,
 }: HeaderProps) {
-  const [timeLeft, setTimeLeft] = useState<string>("");
+  const [timeLeft, setTimeLeft] = useState("");
   const [isWarning, setIsWarning] = useState(false);
 
   useEffect(() => {
-    if (!auction || !auction.ends_at) {
+    if (!auction?.ends_at) {
       setTimeLeft("");
+      setIsWarning(false);
       return;
     }
 
@@ -59,10 +64,10 @@ export function Header({
 
     const updateTimer = () => {
       const now = Date.now();
-      const start = new Date(auction.starts_at).getTime();
-      const end = new Date(auction.ends_at).getTime();
+      const start = auction.starts_at ? new Date(auction.starts_at).getTime() : 0;
+      const end = new Date(auction.ends_at!).getTime();
 
-      if (now < start) {
+      if (start && now < start) {
         setTimeLeft("Auction not started");
         setIsWarning(false);
         return;
@@ -111,9 +116,13 @@ export function Header({
         style={{ maxWidth: "1180px" }}
       >
         <div className="flex items-center gap-4">
+          {/* Vite replacement for next/image (logo import becomes a URL string) */}
           <img
             src={logo}
             alt="Emerson Logo"
+            height={40}
+            width={160}
+            loading="eager"
             className="h-10 w-auto object-contain"
           />
           <span className="font-semibold text-lg text-[#262728] dark:text-white hidden md:inline">
@@ -178,15 +187,15 @@ export function Header({
                   <DropdownMenuItem onClick={() => onNavigate("accounts")}>
                     👥 All Accounts
                   </DropdownMenuItem>
+
                   {adminRole === "product_owner" && (
                     <DropdownMenuItem onClick={() => onNavigate("manage-global-admins")}>
                       🔐 Manage Global Administrators
                     </DropdownMenuItem>
                   )}
+
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={onAdminLogout}>
-                    🚪 Logout
-                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={onAdminLogout}>🚪 Logout</DropdownMenuItem>
                 </>
               ) : (
                 <>
@@ -196,7 +205,9 @@ export function Header({
                   <DropdownMenuItem onClick={() => onRoleChange("vendor")}>
                     🏢 Vendor View
                   </DropdownMenuItem>
+
                   <DropdownMenuSeparator />
+
                   <DropdownMenuItem onClick={() => onNavigate("all-auctions")}>
                     📋 My Auctions
                   </DropdownMenuItem>
@@ -214,18 +225,14 @@ export function Header({
                   {onCreateAuction && (
                     <>
                       <DropdownMenuSeparator />
-                      <DropdownMenuItem onClick={onCreateAuction}>
-                        🆕 Create New Auction
-                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={onCreateAuction}>🆕 Create New Auction</DropdownMenuItem>
                     </>
                   )}
 
                   {onAdminLogout && (
                     <>
                       <DropdownMenuSeparator />
-                      <DropdownMenuItem onClick={onAdminLogout}>
-                        Logout
-                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={onAdminLogout}>Logout</DropdownMenuItem>
                     </>
                   )}
                 </>

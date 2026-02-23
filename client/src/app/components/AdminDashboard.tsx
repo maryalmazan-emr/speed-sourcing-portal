@@ -1,5 +1,4 @@
 // File: src/app/components/AdminDashboard.tsx
-
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
@@ -54,9 +53,14 @@ interface AdminDashboardProps {
   auction: AuctionLike | null;
   onRefresh: () => void;
   adminRole?: AdminRole;
+  adminEmail?: string; // kept optional (no longer passed to apiUpdateAuction)
 }
 
-export function AdminDashboard({ auction, onRefresh, adminRole }: AdminDashboardProps) {
+export function AdminDashboard({
+  auction,
+  onRefresh,
+  adminRole,
+}: AdminDashboardProps) {
   const [invites, setInvites] = useState<VendorInvite[]>([]);
   const [bids, setBids] = useState<Bid[]>([]);
   const [loading, setLoading] = useState(true);
@@ -83,7 +87,10 @@ export function AdminDashboard({ auction, onRefresh, adminRole }: AdminDashboard
         if (a.cost_per_unit !== b.cost_per_unit) {
           return a.cost_per_unit - b.cost_per_unit;
         }
-        return new Date(a.submitted_at).getTime() - new Date(b.submitted_at).getTime();
+        return (
+          new Date(a.submitted_at).getTime() -
+          new Date(b.submitted_at).getTime()
+        );
       });
 
       setInvites((allInvites || []) as VendorInvite[]);
@@ -142,7 +149,7 @@ Emerson Procurement Team`;
         toast.error("Failed to copy");
       }
     },
-    [invites, auction?.title],
+    [invites, auction?.title]
   );
 
   const handleSelectWinnerClick = useCallback((vendorEmail: string) => {
@@ -155,7 +162,6 @@ Emerson Procurement Team`;
     if (!open) setSelectedWinnerEmail(null);
   }, []);
 
-  // ✅ IMPORTANT: explicitly Promise<void> so it matches dialog prop cleanly
   const selectWinner = useCallback(async (): Promise<void> => {
     if (!auction?.id) {
       toast.error("Auction not loaded");
@@ -164,13 +170,11 @@ Emerson Procurement Team`;
     if (!selectedWinnerEmail) return;
 
     try {
-      await apiUpdateAuction(
-        auction.id,
-        {
-          status: "completed",
-          winner_vendor_email: selectedWinnerEmail,
-        } as any,
-      );
+      // ✅ FIX: apiUpdateAuction expects 2 arguments (auctionId, patch). [1](https://emerson-my.sharepoint.com/personal/mary_almazan_emerson_com/Documents/Downloads/src.zip)
+      await apiUpdateAuction(auction.id, {
+        status: "completed",
+        winner_vendor_email: selectedWinnerEmail,
+      } as any);
 
       toast.success("Winner selected and auction closed");
       setSelectedWinnerEmail(null);
@@ -209,7 +213,6 @@ Emerson Procurement Team`;
         onConfirm={selectWinner}
       />
 
-      {/* Auction Summary */}
       <Card className="mb-6">
         <CardHeader>
           <div className="flex items-center gap-2 mb-2">
@@ -227,10 +230,9 @@ Emerson Procurement Team`;
         </CardHeader>
       </Card>
 
-      {/* Bids */}
       <Card className="mb-6">
         <CardHeader>
-          <CardTitle>Bids &amp; Leaderboard ({bids.length})</CardTitle>
+          <CardTitle>Bids & Leaderboard ({bids.length})</CardTitle>
           <CardDescription>Sorted by delivery time, price, timestamp</CardDescription>
         </CardHeader>
         <CardContent>
@@ -264,7 +266,7 @@ Emerson Procurement Team`;
                     <TableCell>{bid.vendor_email}</TableCell>
                     <TableCell>{bid.delivery_time_days}</TableCell>
                     <TableCell>
-                      ${bid.cost_per_unit?.toLocaleString?.() ?? bid.cost_per_unit}
+                      ${bid.cost_per_unit?.toLocaleString?.() ?? (bid as any).cost_per_unit}
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
@@ -298,7 +300,6 @@ Emerson Procurement Team`;
         </CardContent>
       </Card>
 
-      {/* Invited Vendors */}
       <Collapsible open={isVendorsOpen} onOpenChange={setIsVendorsOpen}>
         <Card>
           <CardHeader>
@@ -322,16 +323,20 @@ Emerson Procurement Team`;
 
                 <TableBody>
                   {invites.map((invite, index) => (
-                    <TableRow key={invite.id}>
-                      <TableCell>{invite.vendor_email}</TableCell>
-                      <TableCell className="font-mono">{invite.invite_token}</TableCell>
+                    <TableRow key={(invite as any).id ?? index}>
+                      <TableCell>{(invite as any).vendor_email}</TableCell>
+                      <TableCell className="font-mono">{(invite as any).invite_token}</TableCell>
                       <TableCell>
-                        <Badge variant={invite.status === "accessed" ? "default" : "secondary"}>
-                          {invite.status}
+                        <Badge variant={(invite as any).status === "accessed" ? "default" : "secondary"}>
+                          {(invite as any).status}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right space-x-2">
-                        <Button size="sm" variant="outline" onClick={() => copyCode(invite.invite_token)}>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => copyCode((invite as any).invite_token)}
+                        >
                           <Copy className="h-3 w-3 mr-1" />
                           Code
                         </Button>

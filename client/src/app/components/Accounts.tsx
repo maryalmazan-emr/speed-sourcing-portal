@@ -15,7 +15,7 @@ import {
 import { Badge } from "@/app/components/ui/badge";
 import { ArrowLeft, RefreshCw } from "lucide-react";
 
-import { apiGetAllAdmins } from "@/lib/api"; 
+import { apiGetAllAdmins } from "@/lib/api/api"; 
 import { hasGlobalAccess, getRoleName } from "@/lib/adminAuth";
 import {
   Table,

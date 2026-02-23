@@ -50,12 +50,11 @@ export function ManageGlobalAdmins({ onBack }: ManageGlobalAdminsProps) {
   const [creating, setCreating] = useState(false);
 
   const loadAdmins = async (): Promise<void> => {
+    setLoading(true);
     try {
       const allAdmins = await getAllAdminAccounts();
       const filteredAdmins = allAdmins.filter(
-        (admin) =>
-          admin.role === "global_admin" ||
-          admin.role === "product_owner"
+        (admin) => admin.role === "global_admin" || admin.role === "product_owner"
       );
       setAdmins(filteredAdmins);
     } catch (error) {
@@ -68,6 +67,7 @@ export function ManageGlobalAdmins({ onBack }: ManageGlobalAdminsProps) {
 
   useEffect(() => {
     void loadAdmins();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleCreateAdmin = async (): Promise<void> => {
@@ -84,23 +84,19 @@ export function ManageGlobalAdmins({ onBack }: ManageGlobalAdminsProps) {
 
     setCreating(true);
     try {
-      await createAdminAccount(
-        newEmail,
-        newPassword,
-        newName,
-        "global_admin"
-      );
-      toast.success(
-        `Global Administrator ${newName} created successfully`
-      );
+      await createAdminAccount(newEmail, newPassword, newName, "global_admin");
+      toast.success(`Global Administrator ${newName} created successfully`);
+
       setNewEmail("");
       setNewPassword("");
       setNewName("");
       setDialogOpen(false);
-      loadAdmins();
+
+      // Refresh list
+      await loadAdmins();
     } catch (error: any) {
       console.error("Error creating admin:", error);
-      toast.error(error.message || "Failed to create administrator");
+      toast.error(error?.message || "Failed to create administrator");
     } finally {
       setCreating(false);
     }
@@ -108,35 +104,32 @@ export function ManageGlobalAdmins({ onBack }: ManageGlobalAdminsProps) {
 
   const getRoleBadge = (role: Admin["role"]) => {
     if (role === "product_owner") {
-      return (
-        <Badge className="bg-purple-600 text-white">
-          Product Owner
-        </Badge>
-      );
+      return <Badge className="bg-purple-600 text-white">Product Owner</Badge>;
     }
-    return (
-      <Badge className="bg-blue-600 text-white">
-        Global Administrator
-      </Badge>
-    );
+    return <Badge className="bg-blue-600 text-white">Global Administrator</Badge>;
+  };
+
+  const formatCreatedAt = (createdAt: any) => {
+    try {
+      if (!createdAt) return "—";
+      const d = new Date(createdAt);
+      if (Number.isNaN(d.getTime())) return "—";
+      return d.toLocaleDateString();
+    } catch {
+      return "—";
+    }
   };
 
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-6 flex items-center justify-center">
-        <div className="text-gray-600 dark:text-gray-300">
-          Loading administrators...
-        </div>
+        <div className="text-gray-600 dark:text-gray-300">Loading administrators...</div>
       </div>
     );
   }
 
-  const globalAdmins = admins.filter(
-    (a) => a.role === "global_admin"
-  );
-  const productOwners = admins.filter(
-    (a) => a.role === "product_owner"
-  );
+  const globalAdmins = admins.filter((a) => a.role === "global_admin");
+  const productOwners = admins.filter((a) => a.role === "product_owner");
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-6">
@@ -170,9 +163,7 @@ export function ManageGlobalAdmins({ onBack }: ManageGlobalAdminsProps) {
             <DialogContent className="sm:max-w-[500px]">
               <DialogHeader>
                 <DialogTitle>Add Global Administrator</DialogTitle>
-                <DialogDescription>
-                  Create a new Global Administrator account.
-                </DialogDescription>
+                <DialogDescription>Create a new Global Administrator account.</DialogDescription>
               </DialogHeader>
 
               <div className="grid gap-4 py-4">
@@ -182,8 +173,10 @@ export function ManageGlobalAdmins({ onBack }: ManageGlobalAdminsProps) {
                     id="name"
                     value={newName}
                     onChange={(e) => setNewName(e.target.value)}
+                    autoComplete="name"
                   />
                 </div>
+
                 <div className="grid gap-2">
                   <Label htmlFor="email">Email Address</Label>
                   <Input
@@ -191,8 +184,10 @@ export function ManageGlobalAdmins({ onBack }: ManageGlobalAdminsProps) {
                     type="email"
                     value={newEmail}
                     onChange={(e) => setNewEmail(e.target.value)}
+                    autoComplete="email"
                   />
                 </div>
+
                 <div className="grid gap-2">
                   <Label htmlFor="password">Password</Label>
                   <Input
@@ -200,15 +195,13 @@ export function ManageGlobalAdmins({ onBack }: ManageGlobalAdminsProps) {
                     type="password"
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
+                    autoComplete="new-password"
                   />
                 </div>
               </div>
 
               <DialogFooter>
-                <Button
-                  variant="outline"
-                  onClick={() => setDialogOpen(false)}
-                >
+                <Button variant="outline" onClick={() => setDialogOpen(false)}>
                   Cancel
                 </Button>
                 <Button
@@ -232,9 +225,7 @@ export function ManageGlobalAdmins({ onBack }: ManageGlobalAdminsProps) {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-purple-600">
-                {productOwners.length}
-              </div>
+              <div className="text-3xl font-bold text-purple-600">{productOwners.length}</div>
             </CardContent>
           </Card>
 
@@ -245,9 +236,7 @@ export function ManageGlobalAdmins({ onBack }: ManageGlobalAdminsProps) {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-blue-600">
-                {globalAdmins.length}
-              </div>
+              <div className="text-3xl font-bold text-blue-600">{globalAdmins.length}</div>
             </CardContent>
           </Card>
         </div>
@@ -256,9 +245,7 @@ export function ManageGlobalAdmins({ onBack }: ManageGlobalAdminsProps) {
         <Card>
           <CardHeader>
             <CardTitle>Administrator Accounts</CardTitle>
-            <CardDescription>
-              All Product Owner and Global Administrator accounts
-            </CardDescription>
+            <CardDescription>All Product Owner and Global Administrator accounts</CardDescription>
           </CardHeader>
           <CardContent>
             <Table>
@@ -273,28 +260,17 @@ export function ManageGlobalAdmins({ onBack }: ManageGlobalAdminsProps) {
               <TableBody>
                 {admins.length === 0 ? (
                   <TableRow>
-                    <TableCell
-                      colSpan={4}
-                      className="text-center text-gray-500 dark:text-gray-400"
-                    >
+                    <TableCell colSpan={4} className="text-center text-gray-500 dark:text-gray-400">
                       No administrators found
                     </TableCell>
                   </TableRow>
                 ) : (
                   admins.map((admin) => (
                     <TableRow key={admin.id}>
-                      <TableCell className="font-medium">
-                        {admin.company_name}
-                      </TableCell>
+                      <TableCell className="font-medium">{admin.company_name}</TableCell>
                       <TableCell>{admin.email}</TableCell>
-                      <TableCell>
-                        {getRoleBadge(admin.role)}
-                      </TableCell>
-                      <TableCell>
-                        {new Date(
-                          admin.created_at
-                        ).toLocaleDateString()}
-                      </TableCell>
+                      <TableCell>{getRoleBadge(admin.role)}</TableCell>
+                      <TableCell>{formatCreatedAt((admin as any).created_at)}</TableCell>
                     </TableRow>
                   ))
                 )}
@@ -306,3 +282,10 @@ export function ManageGlobalAdmins({ onBack }: ManageGlobalAdminsProps) {
     </div>
   );
 }
+
+/**
+ * Default export added so both import styles work:
+ *  - import { ManageGlobalAdmins } from "...";
+ *  - import ManageGlobalAdmins from "...";
+ */
+export default ManageGlobalAdmins;

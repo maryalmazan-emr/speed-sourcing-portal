@@ -1,5 +1,4 @@
 // File: src/app/components/AdminSetup.tsx
-
 "use client";
 
 import { useState } from "react";
@@ -16,7 +15,7 @@ import {
 } from "@/app/components/ui/card";
 import { Copy, Check, ArrowRight, ArrowLeft, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
-import { apiCreateAuction, apiCreateInvites } from "@/lib/api";
+import { apiCreateAuction, apiCreateInvites } from "@/lib/api/api";
 import { copyToClipboard } from "@/lib/clipboard";
 import {
   Select,
@@ -183,6 +182,17 @@ export function AdminSetup({ onComplete, adminSession }: AdminSetupProps) {
 
   const launchAuction = async (): Promise<void> => {
     if (loading) return;
+
+    if (!adminSession?.email) {
+      toast.error("Admin email is required to create an auction");
+      return;
+    }
+
+    if (!invites.length) {
+      toast.error("Add at least one vendor before launching");
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -190,9 +200,21 @@ export function AdminSetup({ onComplete, adminSession }: AdminSetupProps) {
         (p) => p.part_number.trim() && p.quantity.trim()
       );
 
-      const auction = await apiCreateAuction({
+      if (validParts.length === 0) {
+        toast.error("At least one part number with quantity is required");
+        return;
+      }
+
+      /**
+       * ✅ IMPORTANT:
+       * Your server POST /api/auctions requires created_by_admin_email (snake_case).
+       * Some versions also accept createdByAdminEmail (camelCase).
+       * Send BOTH to be safe and eliminate 400s.
+       */
+      const auctionPayload = {
         title: formData.name,
         description: formData.description,
+        status: "active",
         product_details: validParts
           .map((p) => `${p.part_number}: ${p.quantity}`)
           .join("; "),
@@ -201,9 +223,19 @@ export function AdminSetup({ onComplete, adminSession }: AdminSetupProps) {
         delivery_location: formData.group_site,
         starts_at: new Date(formData.start_date).toISOString(),
         ends_at: new Date(formData.end_date).toISOString(),
+        winner_vendor_email: null,
+
+        // existing metadata (keep)
         created_by_email: adminSession.email,
         created_by_company: adminSession.name,
         admin_id: adminSession.email,
+
+        // ✅ required by backend
+        created_by_admin_email: adminSession.email,
+        // ✅ accepted by some backend variants
+        createdByAdminEmail: adminSession.email,
+
+        // extra fields (keep for DB/model compatibility)
         date_requested: formData.date_requested,
         requestor: formData.requestor,
         requestor_email: formData.requestor_email,
@@ -211,7 +243,9 @@ export function AdminSetup({ onComplete, adminSession }: AdminSetupProps) {
         event_type: formData.event_type,
         target_lead_time: formData.target_lead_time,
         notes: formData.notes,
-      } as any);
+      };
+
+      const auction = await apiCreateAuction(auctionPayload as any);
 
       await apiCreateInvites(
         auction.id,
@@ -250,7 +284,9 @@ export function AdminSetup({ onComplete, adminSession }: AdminSetupProps) {
 
               <Select
                 value={formData.group_site}
-                onValueChange={(v) => setFormData({ ...formData, group_site: v })}
+                onValueChange={(v) =>
+                  setFormData({ ...formData, group_site: v })
+                }
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select site" />
@@ -270,7 +306,10 @@ export function AdminSetup({ onComplete, adminSession }: AdminSetupProps) {
               <Select
                 value={formData.event_type}
                 onValueChange={(v) =>
-                  setFormData({ ...formData, event_type: v as FormDataState["event_type"] })
+                  setFormData({
+                    ...formData,
+                    event_type: v as FormDataState["event_type"],
+                  })
                 }
               >
                 <SelectTrigger className="max-w-xs">
@@ -288,7 +327,9 @@ export function AdminSetup({ onComplete, adminSession }: AdminSetupProps) {
               <Label>Event Name *</Label>
               <Input
                 value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, name: e.target.value })
+                }
               />
             </div>
 
@@ -334,7 +375,10 @@ export function AdminSetup({ onComplete, adminSession }: AdminSetupProps) {
                 className="max-w-xs"
                 value={formData.target_lead_time}
                 onChange={(e) =>
-                  setFormData({ ...formData, target_lead_time: e.target.value })
+                  setFormData({
+                    ...formData,
+                    target_lead_time: e.target.value,
+                  })
                 }
               />
             </div>
@@ -342,7 +386,12 @@ export function AdminSetup({ onComplete, adminSession }: AdminSetupProps) {
             <div>
               <div className="flex justify-between mb-2">
                 <Label>Part Numbers *</Label>
-                <Button size="sm" variant="outline" onClick={addPartNumber} type="button">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={addPartNumber}
+                  type="button"
+                >
                   <Plus className="h-4 w-4 mr-1" />
                   Add
                 </Button>
@@ -353,12 +402,16 @@ export function AdminSetup({ onComplete, adminSession }: AdminSetupProps) {
                   <Input
                     placeholder="Part #"
                     value={p.part_number}
-                    onChange={(e) => updatePartNumber(p.id, "part_number", e.target.value)}
+                    onChange={(e) =>
+                      updatePartNumber(p.id, "part_number", e.target.value)
+                    }
                   />
                   <Input
                     placeholder="Qty"
                     value={p.quantity}
-                    onChange={(e) => updatePartNumber(p.id, "quantity", e.target.value)}
+                    onChange={(e) =>
+                      updatePartNumber(p.id, "quantity", e.target.value)
+                    }
                   />
                   <Button
                     size="icon"
@@ -378,7 +431,9 @@ export function AdminSetup({ onComplete, adminSession }: AdminSetupProps) {
               <Textarea
                 rows={3}
                 value={formData.notes}
-                onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, notes: e.target.value })
+                }
               />
             </div>
 
@@ -393,7 +448,9 @@ export function AdminSetup({ onComplete, adminSession }: AdminSetupProps) {
         <Card>
           <CardHeader>
             <CardTitle>Step 2: Vendor Emails</CardTitle>
-            <CardDescription>Paste vendor emails (comma or line separated)</CardDescription>
+            <CardDescription>
+              Paste vendor emails (comma or line separated)
+            </CardDescription>
           </CardHeader>
 
           <CardContent className="space-y-4">
@@ -422,118 +479,47 @@ export function AdminSetup({ onComplete, adminSession }: AdminSetupProps) {
         <Card>
           <CardHeader>
             <CardTitle>Step 3: Review &amp; Launch</CardTitle>
-            <CardDescription>Review invitation details and launch the auction</CardDescription>
+            <CardDescription>
+              Review invitation details and launch the auction
+            </CardDescription>
           </CardHeader>
 
           <CardContent className="space-y-4">
-            <div className="p-4 bg-gray-100/50 dark:bg-gray-700/50 rounded-md border border-gray-200 dark:border-gray-600">
-              <h3 className="font-semibold mb-2 text-gray-900 dark:text-white">
-                Auction Summary
+            <div className="flex items-center justify-between gap-3">
+              <h3 className="font-semibold">
+                Vendor Invitations ({invites.length})
               </h3>
 
-              <div className="space-y-1 text-sm">
-                <div>
-                  <span className="text-gray-600 dark:text-gray-400">Name:</span>{" "}
-                  <span className="font-medium text-gray-900 dark:text-white">
-                    {formData.name}
-                  </span>
-                </div>
-
-                <div>
-                  <span className="text-gray-600 dark:text-gray-400">Group/Site:</span>{" "}
-                  <span className="font-medium text-gray-900 dark:text-white">
-                    {formData.group_site}
-                  </span>
-                </div>
-
-                <div>
-                  <span className="text-gray-600 dark:text-gray-400">Event Type:</span>{" "}
-                  <span className="font-medium text-gray-900 dark:text-white">
-                    {formData.event_type}
-                  </span>
-                </div>
-
-                <div>
-                  <span className="text-gray-600 dark:text-gray-400">Target Lead Time:</span>{" "}
-                  <span className="font-medium text-gray-900 dark:text-white">
-                    {formData.target_lead_time} days
-                  </span>
-                </div>
-
-                <div>
-                  <span className="text-gray-600 dark:text-gray-400">Duration:</span>{" "}
-                  <span className="font-medium text-gray-900 dark:text-white">
-                    {new Date(formData.start_date).toLocaleString()} →{" "}
-                    {new Date(formData.end_date).toLocaleString()}
-                  </span>
-                </div>
-
-                <div>
-                  <span className="text-gray-600 dark:text-gray-400">Vendors:</span>{" "}
-                  <span className="font-medium text-gray-900 dark:text-white">
-                    {invites.length}
-                  </span>
-                </div>
-              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={copyVendorList}
+                type="button"
+                disabled={invites.length === 0}
+              >
+                {copied ? (
+                  <Check className="h-4 w-4 mr-1" />
+                ) : (
+                  <Copy className="h-4 w-4 mr-1" />
+                )}
+                {copied ? "Copied" : "Copy Emails"}
+              </Button>
             </div>
 
-            <div>
-              <div className="flex items-center justify-between gap-3 mb-3">
-                <h3 className="font-semibold text-gray-900 dark:text-white">
-                  Vendor Invitations ({invites.length} External Guests)
-                </h3>
-
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={copyVendorList}
-                  type="button"
-                  disabled={invites.length === 0}
+            <div className="space-y-2">
+              {invites.map((invite, index) => (
+                <div
+                  key={`${invite.email}-${index}`}
+                  className="flex items-center justify-between p-3 bg-gray-100/50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-md"
                 >
-                  {copied ? (
-                    <Check className="h-4 w-4 mr-1" />
-                  ) : (
-                    <Copy className="h-4 w-4 mr-1" />
-                  )}
-                  {copied ? "Copied" : "Copy Emails"}
-                </Button>
-              </div>
-
-              <div className="space-y-2">
-                {invites.map((invite, index) => (
-                  <div
-                    key={`${invite.email}-${index}`}
-                    className="flex items-center justify-between p-3 bg-gray-100/50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-md"
-                  >
-                    <div className="flex-1">
-                      <div className="font-medium text-gray-900 dark:text-white">
-                        {invite.email}
-                      </div>
-                      <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                        Invite code will be generated after submission
-                      </div>
+                  <div className="flex-1">
+                    <div className="font-medium">{invite.email}</div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      Invite code will be generated after submission
                     </div>
                   </div>
-                ))}
-              </div>
-
-              <div className="mt-3 p-3 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-md">
-                <p className="text-sm text-blue-900 dark:text-blue-200">
-                  <strong>📋 Next Step:</strong> After you submit, you’ll be taken to the
-                  Admin Dashboard where you can copy invite codes and send them to vendors.
-                </p>
-              </div>
-            </div>
-
-            <div className="p-4 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-md">
-              <p className="text-sm text-gray-900 dark:text-white">
-                <strong>Note:</strong> Invitation emails include Event ID, Requestor, End Date,
-                Target Lead Time, Part Numbers &amp; Quantities, and a link to the live auction.
-                {formData.event_type === "ORDER" &&
-                  " This is a firm ORDER — the winning bid will be binding."}
-                {formData.event_type === "QUOTE" &&
-                  " This is a QUOTE request — the winning bid will receive a PO for review."}
-              </p>
+                </div>
+              ))}
             </div>
           </CardContent>
         </Card>
@@ -542,7 +528,12 @@ export function AdminSetup({ onComplete, adminSession }: AdminSetupProps) {
       <div className="flex items-center justify-between mt-6">
         <div>
           {step > 1 && (
-            <Button variant="outline" onClick={handleBack} disabled={loading} type="button">
+            <Button
+              variant="outline"
+              onClick={handleBack}
+              disabled={loading}
+              type="button"
+            >
               <ArrowLeft className="h-4 w-4 mr-2" />
               Back
             </Button>

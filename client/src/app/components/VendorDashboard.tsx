@@ -22,7 +22,7 @@ import {
   apiSubmitBid,
   apiGetVendorRankInfo,
   apiUpdateVendorAccess,
-} from "@/lib/api";
+} from "@/lib/api/api";
 import { addNotification } from "@/lib/notifications";
 
 type VendorStatus = {

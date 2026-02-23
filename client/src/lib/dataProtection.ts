@@ -1,3 +1,4 @@
+// File: src/lib/dataProtection.ts
 /**
  * Data Persistence and Backup Utilities
  *
@@ -34,6 +35,10 @@ export interface BackupData {
   bids: unknown[];
 }
 
+export interface DataIntegrityResult {
+  issues?: string[];
+}
+
 /* ------------------------------------------------------------------ */
 /* Helpers                                                            */
 /* ------------------------------------------------------------------ */
@@ -46,6 +51,15 @@ function generateDataHash(data: unknown): string {
   }
 }
 
+/**
+ * kv.get() is currently typed in your project such that TS treats it like `{}`.
+ * To keep TypeScript safe and avoid `.length` errors, coerce all values into arrays.
+ */
+async function kvArray(key: string): Promise<unknown[]> {
+  const v: unknown = await (kv as any).get(key);
+  return Array.isArray(v) ? v : [];
+}
+
 /* ------------------------------------------------------------------ */
 /* Data monitoring (loss detection)                                   */
 /* ------------------------------------------------------------------ */
@@ -55,10 +69,10 @@ export function setupDataMonitoring(): () => void {
 
   const interval = setInterval(async () => {
     try {
-      const admins = (await kv.get("admins")) ?? [];
-      const auctions = (await kv.get("auctions")) ?? [];
-      const invites = (await kv.get("invites")) ?? [];
-      const bids = (await kv.get("bids")) ?? [];
+      const admins = await kvArray("admins");
+      const auctions = await kvArray("auctions");
+      const invites = await kvArray("invites");
+      const bids = await kvArray("bids");
 
       const currentData = { admins, auctions, invites, bids };
       const currentHash = generateDataHash(currentData);
@@ -93,22 +107,69 @@ export function setupDataMonitoring(): () => void {
 }
 
 /* ------------------------------------------------------------------ */
+/* Auto backup scheduler                                              */
+/* ------------------------------------------------------------------ */
+
+export function setupAutoBackup(intervalSeconds: number): () => void {
+  const intervalMs = Math.max(intervalSeconds, 5) * 1000;
+
+  const interval = setInterval(async () => {
+    try {
+      await createBackup();
+    } catch (err) {
+      console.error("[dataProtection] Auto-backup failed:", err);
+    }
+  }, intervalMs);
+
+  return () => clearInterval(interval);
+}
+
+/* ------------------------------------------------------------------ */
+/* Data integrity check                                               */
+/* ------------------------------------------------------------------ */
+
+export async function checkDataIntegrity(): Promise<DataIntegrityResult> {
+  const issues: string[] = [];
+
+  try {
+    const admins = await kvArray("admins");
+    const auctions = await kvArray("auctions");
+    const invites = await kvArray("invites");
+    const bids = await kvArray("bids");
+
+    if (admins.length === 0 && auctions.length > 0) {
+      issues.push("Auctions exist but no admin accounts were found.");
+    }
+
+    if (auctions.length === 0 && bids.length > 0) {
+      issues.push("Bids exist without any auctions.");
+    }
+
+    if (invites.length > 0 && auctions.length === 0) {
+      issues.push("Invites exist but no auctions were found.");
+    }
+  } catch (err) {
+    console.error("[dataProtection] Integrity check failed:", err);
+    issues.push("Unable to verify local data integrity.");
+  }
+
+  return issues.length > 0 ? { issues } : {};
+}
+
+/* ------------------------------------------------------------------ */
 /* Backup creation                                                    */
 /* ------------------------------------------------------------------ */
 
 export async function createBackup(): Promise<BackupData> {
   const backup: BackupData = {
     timestamp: Date.now(),
-    admins: (await kv.get("admins")) ?? [],
-    auctions: (await kv.get("auctions")) ?? [],
-    invites: (await kv.get("invites")) ?? [],
-    bids: (await kv.get("bids")) ?? [],
+    admins: await kvArray("admins"),
+    auctions: await kvArray("auctions"),
+    invites: await kvArray("invites"),
+    bids: await kvArray("bids"),
   };
 
-  localStorage.setItem(
-    `${BACKUP_PREFIX}${backup.timestamp}`,
-    JSON.stringify(backup)
-  );
+  localStorage.setItem(`${BACKUP_PREFIX}${backup.timestamp}`, JSON.stringify(backup));
 
   cleanOldBackups();
   return backup;
@@ -142,14 +203,14 @@ export function getLatestBackup(): BackupData | null {
 /* ------------------------------------------------------------------ */
 
 export async function restoreFromBackup(backup: BackupData): Promise<void> {
-  await kv.set("admins", backup.admins ?? []);
-  await kv.set("auctions", backup.auctions ?? []);
-  await kv.set("invites", backup.invites ?? []);
-  await kv.set("bids", backup.bids ?? []);
+  await (kv as any).set("admins", backup.admins ?? []);
+  await (kv as any).set("auctions", backup.auctions ?? []);
+  await (kv as any).set("invites", backup.invites ?? []);
+  await (kv as any).set("bids", backup.bids ?? []);
 }
 
 /* ------------------------------------------------------------------ */
-/* File import (FIXES YOUR ERROR)                                     */
+/* File import                                                        */
 /* ------------------------------------------------------------------ */
 
 export async function importDataFromFile(file: File): Promise<void> {
@@ -165,10 +226,10 @@ export async function importDataFromFile(file: File): Promise<void> {
     throw new Error("Invalid backup file format");
   }
 
-  await kv.set("admins", (data as any).admins ?? []);
-  await kv.set("auctions", (data as any).auctions ?? []);
-  await kv.set("invites", (data as any).invites ?? []);
-  await kv.set("bids", (data as any).bids ?? []);
+  await (kv as any).set("admins", (data as any).admins ?? []);
+  await (kv as any).set("auctions", (data as any).auctions ?? []);
+  await (kv as any).set("invites", (data as any).invites ?? []);
+  await (kv as any).set("bids", (data as any).bids ?? []);
 }
 
 /* ------------------------------------------------------------------ */

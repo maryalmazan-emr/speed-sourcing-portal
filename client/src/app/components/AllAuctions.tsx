@@ -16,7 +16,7 @@ import {
 } from "@/app/components/ui/card";
 import { Badge } from "@/app/components/ui/badge";
 import { ArrowLeft, Crown, Search, Trash2 } from "lucide-react";
-import { apiGetAuctions } from "@/lib/api";
+import { apiGetAuctions } from "@/lib/api/api";
 import { hasGlobalAccess, canDelete, getRoleName } from "@/lib/adminAuth";
 import { toast } from "sonner";
 
@@ -85,10 +85,7 @@ export function AllAuctions({
     }
   };
 
-  const handleDeleteAuction = (
-    auctionTitle: string,
-    e: MouseEvent
-  ): void => {
+  const handleDeleteAuction = (auctionTitle: string, e: MouseEvent): void => {
     e.stopPropagation();
 
     if (!canDeleteAuctions) {
@@ -107,8 +104,7 @@ export function AllAuctions({
     );
   };
 
-  const getShortId = (uuid: string): string =>
-    uuid.substring(0, 8).toUpperCase();
+  const getShortId = (uuid: string): string => uuid.substring(0, 8).toUpperCase();
 
   const getStatusBadge = (auction: AuctionLike) => {
     const now = new Date();
@@ -116,26 +112,18 @@ export function AllAuctions({
     const endsAt = new Date(auction.ends_at);
 
     if (auction.winner_vendor_email) {
-      return (
-        <Badge className="bg-[#00573d] text-white border-0">Awarded</Badge>
-      );
+      return <Badge className="bg-[#00573d] text-white border-0">Awarded</Badge>;
     }
 
     if (startsAt > now) {
-      return (
-        <Badge className="bg-[#9fa1a4] text-white border-0">Scheduled</Badge>
-      );
+      return <Badge className="bg-[#9fa1a4] text-white border-0">Scheduled</Badge>;
     }
 
     if (auction.status === "manually_closed" || endsAt < now) {
-      return (
-        <Badge className="bg-[#9fa1a4] text-white border-0">Closed</Badge>
-      );
+      return <Badge className="bg-[#9fa1a4] text-white border-0">Closed</Badge>;
     }
 
-    return (
-      <Badge className="bg-[#004b8d] text-white border-0">Active</Badge>
-    );
+    return <Badge className="bg-[#004b8d] text-white border-0">Active</Badge>;
   };
 
   const filteredAuctions = useMemo(() => {
@@ -143,8 +131,7 @@ export function AllAuctions({
       const now = new Date();
 
       if (filter === "awarded" && !auction.winner_vendor_email) return false;
-      if (filter === "scheduled" && new Date(auction.starts_at) <= now)
-        return false;
+      if (filter === "scheduled" && new Date(auction.starts_at) <= now) return false;
 
       if (
         filter === "active" &&
@@ -152,8 +139,9 @@ export function AllAuctions({
           new Date(auction.ends_at) < now ||
           auction.winner_vendor_email ||
           new Date(auction.starts_at) > now)
-      )
+      ) {
         return false;
+      }
 
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
@@ -265,10 +253,7 @@ export function AllAuctions({
                         size="sm"
                         className="text-red-600"
                         onClick={e =>
-                          handleDeleteAuction(
-                            auction.title ?? auction.id,
-                            e
-                          )
+                          handleDeleteAuction(auction.title ?? auction.id, e)
                         }
                         type="button"
                       >
@@ -304,10 +289,8 @@ export function AllAuctions({
 
                   {auction.product_details && (
                     <div>
-                      <span className="text-gray-500">Part Numbers & Qty</span>
-                      <div className="font-medium">
-                        {auction.product_details}
-                      </div>
+                      <span className="text-gray-500">Part Numbers &amp; Qty</span>
+                      <div className="font-medium">{auction.product_details}</div>
                     </div>
                   )}
 
