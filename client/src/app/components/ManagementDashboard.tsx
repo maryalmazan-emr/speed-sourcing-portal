@@ -27,31 +27,18 @@ import {
   TableHeader,
   TableRow,
 } from "@/app/components/ui/table";
-import {
-  Search,
-  Copy,
-  AlertCircle,
-  RefreshCw,
-  Users,
-} from "lucide-react";
-import { apiGetAuctions, apiGetInvites } from "@/lib/api/api";
+import { Search, Copy, AlertCircle, RefreshCw, Users } from "lucide-react";
+import { apiGetAuctions, apiGetInvites } from "@/lib/api";
 import { getRoleName } from "@/lib/adminAuth";
 import { toast } from "sonner";
 import { useRealTimeData, LastUpdateIndicator } from "@/lib/useRealTimeData";
 
 interface ManagementDashboardProps {
-  userRole:
-    | "product_owner"
-    | "global_admin"
-    | "internal_user"
-    | "external_guest";
+  userRole: "product_owner" | "global_admin" | "internal_user" | "external_guest";
   onSelectAuction: (auction: any) => void;
 }
 
-export function ManagementDashboard({
-  userRole,
-  onSelectAuction,
-}: ManagementDashboardProps) {
+export function ManagementDashboard({ userRole, onSelectAuction }: ManagementDashboardProps) {
   const [searchQuery, setSearchQuery] = useState("");
 
   // SECURITY
@@ -74,14 +61,6 @@ export function ManagementDashboard({
   }
 
   /* ==================== AUCTIONS ==================== */
-  /**
-   * CRITICAL FIX:
-   * We NEVER pass an adminId unless it is explicitly defined.
-   * This guarantees the request is:
-   *   GET /api/auctions
-   * and NEVER:
-   *   GET /api/auctions?adminId=undefined
-   */
   const fetchAuctions = useCallback(async () => {
     const auctions = await apiGetAuctions();
     return Array.isArray(auctions) ? auctions : [];
@@ -110,7 +89,8 @@ export function ManagementDashboard({
       auctions.map(async (auction: any) => {
         try {
           const invites = await apiGetInvites(auction.id);
-          return invites.map((invite: any) => ({
+
+          return (invites ?? []).map((invite: any) => ({
             ...invite,
             auction_title: auction.title,
             auction_id: auction.id,
@@ -124,10 +104,7 @@ export function ManagementDashboard({
     return results.flat();
   }, [auctions]);
 
-  const {
-    data: invitesData,
-    loading: invitesLoading,
-  } = useRealTimeData({
+  const { data: invitesData, loading: invitesLoading } = useRealTimeData({
     fetchData: fetchAllInvites,
     pollingInterval: 5000,
     storageKey: "invites",
@@ -153,9 +130,9 @@ export function ManagementDashboard({
     if (!searchQuery.trim()) return invites;
     const q = searchQuery.toLowerCase();
     return invites.filter((i: any) =>
-      [i.email, i.invite_code, i.auction_title]
+      [i.vendor_email, i.invite_token, i.auction_title]
         .filter(Boolean)
-        .some((v: string) => v.toLowerCase().includes(q))
+        .some((v: string) => String(v).toLowerCase().includes(q))
     );
   }, [invites, searchQuery]);
 
@@ -166,12 +143,18 @@ export function ManagementDashboard({
   };
 
   const copyInvite = async (invite: any) => {
+    const token = invite?.invite_token ?? "";
+    const email = invite?.vendor_email ?? "";
+    const url = `${window.location.origin}/?invite=${encodeURIComponent(token)}&email=${encodeURIComponent(email)}`;
+
     await navigator.clipboard.writeText(
       `You're invited to participate in "${invite.auction_title}"
 
-Email: ${invite.email}
-Invite Code: ${invite.invite_code}`
+Invite Link: ${url}
+Email: ${email}
+Invite Code: ${token}`
     );
+
     toast.success("Full invitation copied");
   };
 
@@ -181,9 +164,7 @@ Invite Code: ${invite.invite_code}`
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="text-xl font-semibold">
-          Loading management dashboard…
-        </div>
+        <div className="text-xl font-semibold">Loading management dashboard…</div>
       </div>
     );
   }
@@ -194,9 +175,7 @@ Invite Code: ${invite.invite_code}`
       <div className="mb-8 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <h1 className="text-3xl font-bold">Management Dashboard</h1>
-          <Badge className="bg-[#00573d] text-white">
-            {getRoleName(userRole)}
-          </Badge>
+          <Badge className="bg-[#00573d] text-white">{getRoleName(userRole)}</Badge>
         </div>
 
         <div className="flex items-center gap-4">
@@ -221,12 +200,8 @@ Invite Code: ${invite.invite_code}`
 
       <Tabs defaultValue="auctions">
         <TabsList className="grid grid-cols-2 max-w-md">
-          <TabsTrigger value="auctions">
-            Auctions ({filteredAuctions.length})
-          </TabsTrigger>
-          <TabsTrigger value="accounts">
-            Invites ({filteredInvites.length})
-          </TabsTrigger>
+          <TabsTrigger value="auctions">Auctions ({filteredAuctions.length})</TabsTrigger>
+          <TabsTrigger value="invites">Invites ({filteredInvites.length})</TabsTrigger>
         </TabsList>
 
         {/* Auctions */}
@@ -248,9 +223,7 @@ Invite Code: ${invite.invite_code}`
                 >
                   <CardHeader>
                     <CardTitle>{auction.title}</CardTitle>
-                    <CardDescription>
-                      ID: {getShortId(auction.id)}
-                    </CardDescription>
+                    <CardDescription>ID: {getShortId(auction.id)}</CardDescription>
                   </CardHeader>
                 </Card>
               ))}
@@ -259,13 +232,11 @@ Invite Code: ${invite.invite_code}`
         </TabsContent>
 
         {/* Invites */}
-        <TabsContent value="accounts">
+        <TabsContent value="invites">
           <Card>
             <CardHeader>
               <CardTitle>External Guest Invites</CardTitle>
-              <CardDescription>
-                All vendor access codes across all auctions
-              </CardDescription>
+              <CardDescription>All vendor access codes across all auctions</CardDescription>
             </CardHeader>
             <CardContent>
               {filteredInvites.length === 0 ? (
@@ -287,10 +258,8 @@ Invite Code: ${invite.invite_code}`
                   <TableBody>
                     {filteredInvites.map((invite: any) => (
                       <TableRow key={invite.id}>
-                        <TableCell>{invite.email}</TableCell>
-                        <TableCell className="font-mono">
-                          {invite.invite_code}
-                        </TableCell>
+                        <TableCell>{invite.vendor_email}</TableCell>
+                        <TableCell className="font-mono">{invite.invite_token}</TableCell>
                         <TableCell>{invite.auction_title}</TableCell>
                         <TableCell>
                           <Badge>{invite.status}</Badge>
@@ -299,15 +268,12 @@ Invite Code: ${invite.invite_code}`
                           <Button
                             size="sm"
                             variant="outline"
-                            onClick={() => copyCode(invite.invite_code)}
+                            onClick={() => copyCode(invite.invite_token)}
                           >
                             <Copy className="h-3 w-3 mr-1" />
                             Code
                           </Button>
-                          <Button
-                            size="sm"
-                            onClick={() => copyInvite(invite)}
-                          >
+                          <Button size="sm" onClick={() => copyInvite(invite)}>
                             <Copy className="h-3 w-3 mr-1" />
                             Full Invite
                           </Button>

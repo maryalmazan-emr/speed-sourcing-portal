@@ -53,7 +53,7 @@ interface AdminDashboardProps {
   auction: AuctionLike | null;
   onRefresh: () => void;
   adminRole?: AdminRole;
-  adminEmail?: string; // kept optional (no longer passed to apiUpdateAuction)
+  adminEmail?: string;
 }
 
 export function AdminDashboard({
@@ -118,6 +118,7 @@ export function AdminDashboard({
     else toast.error("Failed to copy");
   }, []);
 
+  // ✅ FIX: Real invite link includes token so vendors do NOT fall back to admin login
   const copyInvite = useCallback(
     async (index: number) => {
       const invite = invites[index];
@@ -130,11 +131,15 @@ export function AdminDashboard({
         return;
       }
 
+      const inviteUrl = `${window.location.origin}/?invite=${encodeURIComponent(
+        invite.invite_token
+      )}&email=${encodeURIComponent(invite.vendor_email)}`;
+
       const message = `Hello,
 
 You are invited to participate in a sourcing event hosted through the Emerson Speed Sourcing Portal for ${auction.title}
 
-Portal URL: ${window.location.origin}/?view=vendor
+Invite Link: ${inviteUrl}
 Email: ${invite.vendor_email}
 Invite Code: ${invite.invite_token}
 
@@ -170,7 +175,6 @@ Emerson Procurement Team`;
     if (!selectedWinnerEmail) return;
 
     try {
-      // ✅ FIX: apiUpdateAuction expects 2 arguments (auctionId, patch). [1](https://emerson-my.sharepoint.com/personal/mary_almazan_emerson_com/Documents/Downloads/src.zip)
       await apiUpdateAuction(auction.id, {
         status: "completed",
         winner_vendor_email: selectedWinnerEmail,

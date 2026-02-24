@@ -15,7 +15,10 @@ import {
 } from "@/app/components/ui/card";
 import { Copy, Check, ArrowRight, ArrowLeft, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
-import { apiCreateAuction, apiCreateInvites } from "@/lib/api/api";
+
+// ✅ FIX: import from consolidated module
+import { apiCreateAuction, apiCreateInvites } from "@/lib/api";
+
 import { copyToClipboard } from "@/lib/clipboard";
 import {
   Select,
@@ -205,37 +208,39 @@ export function AdminSetup({ onComplete, adminSession }: AdminSetupProps) {
         return;
       }
 
-      /**
-       * ✅ IMPORTANT:
-       * Your server POST /api/auctions requires created_by_admin_email (snake_case).
-       * Some versions also accept createdByAdminEmail (camelCase).
-       * Send BOTH to be safe and eliminate 400s.
-       */
+      // ✅ FIX: quantity should be a real numeric total (not number of rows)
+      const totalQty = validParts.reduce((sum, p) => {
+        const n = Number.parseInt(p.quantity, 10);
+        return sum + (Number.isFinite(n) ? n : 0);
+      }, 0);
+
+      if (totalQty <= 0) {
+        toast.error("Total quantity must be greater than 0");
+        return;
+      }
+
+      const productDetails = validParts
+        .map((p) => `${p.part_number.trim()}: ${p.quantity.trim()}`)
+        .join("; ");
+
       const auctionPayload = {
+        // ✅ server expects these core fields
         title: formData.name,
         description: formData.description,
         status: "active",
-        product_details: validParts
-          .map((p) => `${p.part_number}: ${p.quantity}`)
-          .join("; "),
-        quantity: validParts.length,
-        unit: "parts",
+        product_details: productDetails,
+        quantity: totalQty,
+        unit: "EA",
         delivery_location: formData.group_site,
         starts_at: new Date(formData.start_date).toISOString(),
         ends_at: new Date(formData.end_date).toISOString(),
         winner_vendor_email: null,
 
-        // existing metadata (keep)
+        // metadata (kept)
         created_by_email: adminSession.email,
         created_by_company: adminSession.name,
-        admin_id: adminSession.email,
 
-        // ✅ required by backend
-        created_by_admin_email: adminSession.email,
-        // ✅ accepted by some backend variants
-        createdByAdminEmail: adminSession.email,
-
-        // extra fields (keep for DB/model compatibility)
+        // optional fields (kept)
         date_requested: formData.date_requested,
         requestor: formData.requestor,
         requestor_email: formData.requestor_email,
@@ -245,10 +250,20 @@ export function AdminSetup({ onComplete, adminSession }: AdminSetupProps) {
         notes: formData.notes,
       };
 
-      const auction = await apiCreateAuction(auctionPayload as any);
+      const created = await apiCreateAuction(auctionPayload as any);
+
+      // ✅ FIX: handle multiple possible response shapes
+      const auctionId =
+        (created as any)?.id ??
+        (created as any)?.auction?.id ??
+        (created as any)?.auction_id;
+
+      if (!auctionId) {
+        throw new Error("Auction created but no id was returned by server");
+      }
 
       await apiCreateInvites(
-        auction.id,
+        auctionId,
         invites.map((i) => ({
           email: i.email,
           company: i.company_name,
@@ -284,9 +299,7 @@ export function AdminSetup({ onComplete, adminSession }: AdminSetupProps) {
 
               <Select
                 value={formData.group_site}
-                onValueChange={(v) =>
-                  setFormData({ ...formData, group_site: v })
-                }
+                onValueChange={(v) => setFormData({ ...formData, group_site: v })}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select site" />
@@ -327,9 +340,7 @@ export function AdminSetup({ onComplete, adminSession }: AdminSetupProps) {
               <Label>Event Name *</Label>
               <Input
                 value={formData.name}
-                onChange={(e) =>
-                  setFormData({ ...formData, name: e.target.value })
-                }
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               />
             </div>
 
@@ -375,10 +386,7 @@ export function AdminSetup({ onComplete, adminSession }: AdminSetupProps) {
                 className="max-w-xs"
                 value={formData.target_lead_time}
                 onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    target_lead_time: e.target.value,
-                  })
+                  setFormData({ ...formData, target_lead_time: e.target.value })
                 }
               />
             </div>
@@ -431,9 +439,7 @@ export function AdminSetup({ onComplete, adminSession }: AdminSetupProps) {
               <Textarea
                 rows={3}
                 value={formData.notes}
-                onChange={(e) =>
-                  setFormData({ ...formData, notes: e.target.value })
-                }
+                onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
               />
             </div>
 
@@ -448,9 +454,7 @@ export function AdminSetup({ onComplete, adminSession }: AdminSetupProps) {
         <Card>
           <CardHeader>
             <CardTitle>Step 2: Vendor Emails</CardTitle>
-            <CardDescription>
-              Paste vendor emails (comma or line separated)
-            </CardDescription>
+            <CardDescription>Paste vendor emails (comma or line separated)</CardDescription>
           </CardHeader>
 
           <CardContent className="space-y-4">
@@ -479,16 +483,12 @@ export function AdminSetup({ onComplete, adminSession }: AdminSetupProps) {
         <Card>
           <CardHeader>
             <CardTitle>Step 3: Review &amp; Launch</CardTitle>
-            <CardDescription>
-              Review invitation details and launch the auction
-            </CardDescription>
+            <CardDescription>Review invitation details and launch the auction</CardDescription>
           </CardHeader>
 
           <CardContent className="space-y-4">
             <div className="flex items-center justify-between gap-3">
-              <h3 className="font-semibold">
-                Vendor Invitations ({invites.length})
-              </h3>
+              <h3 className="font-semibold">Vendor Invitations ({invites.length})</h3>
 
               <Button
                 size="sm"
@@ -497,11 +497,7 @@ export function AdminSetup({ onComplete, adminSession }: AdminSetupProps) {
                 type="button"
                 disabled={invites.length === 0}
               >
-                {copied ? (
-                  <Check className="h-4 w-4 mr-1" />
-                ) : (
-                  <Copy className="h-4 w-4 mr-1" />
-                )}
+                {copied ? <Check className="h-4 w-4 mr-1" /> : <Copy className="h-4 w-4 mr-1" />}
                 {copied ? "Copied" : "Copy Emails"}
               </Button>
             </div>

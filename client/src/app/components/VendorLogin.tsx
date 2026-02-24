@@ -2,7 +2,7 @@
 
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
@@ -15,7 +15,7 @@ import {
   CardTitle,
 } from "@/app/components/ui/card";
 import { toast } from "sonner";
-import { apiValidateVendorToken } from "@/lib/api/api";
+import { apiValidateVendorToken } from "@/lib/api";
 import { ThemeToggle } from "@/app/components/ThemeToggle";
 import { DebugStorage } from "@/app/components/DebugStorage";
 
@@ -29,6 +29,17 @@ export function VendorLogin({ onLogin }: VendorLoginProps) {
   const [loading, setLoading] = useState(false);
   const [showDebug, setShowDebug] = useState(false);
 
+  // ✅ Prefill from invite link (invite-only access)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const token = (params.get("invite") ?? params.get("token") ?? "").trim();
+    const emailParam = (params.get("email") ?? "").trim().toLowerCase();
+
+    if (token && !inviteCode) setInviteCode(token);
+    if (emailParam && !email) setEmail(emailParam);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const handleLogin = async (e: FormEvent): Promise<void> => {
     e.preventDefault();
     setLoading(true);
@@ -39,12 +50,23 @@ export function VendorLogin({ onLogin }: VendorLoginProps) {
 
       const result = await apiValidateVendorToken(trimmedInviteCode);
 
-      if (!result) {
+      // tolerate multiple backend shapes
+      const auctionId = result?.auction?.id ?? result?.auction_id;
+      const vendorEmail =
+        (result?.invite?.vendor_email ?? result?.vendor_email ?? "").toLowerCase();
+      const vendorCompany = result?.invite?.vendor_company ?? result?.vendor_company;
+
+      if (!result || !auctionId || !vendorEmail) {
         toast.error("Invalid invite code. Please check your invite code and try again.");
         return;
       }
 
-      if (result.invite.vendor_email.toLowerCase() !== trimmedEmail) {
+      if (!trimmedEmail) {
+        toast.error("Email is required");
+        return;
+      }
+
+      if (vendorEmail !== trimmedEmail) {
         toast.error("Email does not match invite code");
         return;
       }
@@ -54,14 +76,14 @@ export function VendorLogin({ onLogin }: VendorLoginProps) {
       const session = {
         session_token: trimmedInviteCode,
         vendor_email: trimmedEmail,
-        vendor_company: result.invite.vendor_company,
-        auction_id: result.auction.id,
+        vendor_company: vendorCompany,
+        auction_id: auctionId,
       };
 
-      onLogin(session, result.auction.id);
-    } catch (error) {
+      onLogin(session, auctionId);
+    } catch (error: any) {
       console.error("[VendorLogin] Login error:", error);
-      toast.error("Login failed. Please try again.");
+      toast.error(error?.message ?? "Login failed. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -113,7 +135,7 @@ export function VendorLogin({ onLogin }: VendorLoginProps) {
                 id="invite-code"
                 value={inviteCode}
                 onChange={(e) => setInviteCode(e.target.value)}
-                placeholder="abc123xyz"
+                placeholder="ABC123"
                 required
                 className="font-mono"
               />

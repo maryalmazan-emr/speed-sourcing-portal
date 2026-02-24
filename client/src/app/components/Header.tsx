@@ -1,5 +1,7 @@
 // File: src/app/components/Header.tsx
 
+"use client";
+
 import { useEffect, useState } from "react";
 import { Button } from "@/app/components/ui/button";
 import {
@@ -9,7 +11,7 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from "@/app/components/ui/dropdown-menu";
-import { Menu, RotateCcw } from "lucide-react";
+import { Menu, HelpCircle, ArrowLeft, RotateCcw } from "lucide-react";
 import logo from "@/assets/logo.png";
 import { getRoleName } from "@/lib/adminAuth";
 import { ThemeToggle } from "@/app/components/ThemeToggle";
@@ -24,20 +26,24 @@ interface Auction {
 interface HeaderProps {
   auction: Auction | null;
   role: "admin" | "vendor";
-  onRoleChange: (role: "admin" | "vendor") => void;
+  currentView: string; // tells Header where we are (e.g., "faq")
   onNavigate: (view: string) => void;
   onResetAuction?: () => void;
   onCreateAuction?: () => void;
   onAdminLogout?: () => void;
   currentUser?: string;
-  adminRole?: "product_owner" | "global_admin" | "internal_user" | "external_guest";
+  adminRole?:
+    | "product_owner"
+    | "global_admin"
+    | "internal_user"
+    | "external_guest";
   vendorEmail?: string;
 }
 
 export function Header({
   auction,
   role,
-  onRoleChange,
+  currentView,
   onNavigate,
   onResetAuction,
   onCreateAuction,
@@ -74,7 +80,6 @@ export function Header({
       }
 
       const diff = end - now;
-
       if (diff <= 0) {
         setTimeLeft("Auction ended");
         setIsWarning(false);
@@ -109,6 +114,12 @@ export function Header({
     return () => clearInterval(interval);
   }, [auction]);
 
+  // ✅ ONLY show Back to Auction when vendor is on FAQ
+  const showBackToAuctionInMenu =
+    currentView === "faq" && role === "vendor" && Boolean(auction);
+
+  const isPrivilegedAdmin = adminRole === "product_owner" || adminRole === "global_admin";
+
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-white dark:bg-gray-800 shadow-sm">
       <div
@@ -116,7 +127,6 @@ export function Header({
         style={{ maxWidth: "1180px" }}
       >
         <div className="flex items-center gap-4">
-          {/* Vite replacement for next/image (logo import becomes a URL string) */}
           <img
             src={logo}
             alt="Emerson Logo"
@@ -164,54 +174,65 @@ export function Header({
             adminRole={adminRole}
           />
 
+          {/* ✅ MENU */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm">
+              <Button variant="outline" size="sm" type="button">
                 <Menu className="h-4 w-4 mr-2" />
                 Menu
               </Button>
             </DropdownMenuTrigger>
 
             <DropdownMenuContent align="end" className="w-56">
-              {adminRole === "product_owner" || adminRole === "global_admin" ? (
+              {/* ✅ Vendor-only: Back to Auction ONLY on FAQ */}
+              {showBackToAuctionInMenu && (
                 <>
-                  <DropdownMenuItem onClick={() => onNavigate("management-dashboard")}>
-                    📊 Management Dashboard
+                  <DropdownMenuItem onClick={() => onNavigate("vendor-dashboard")}>
+                    <ArrowLeft className="h-4 w-4 mr-2" />
+                    Back to Auction
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => onNavigate("messaging-center")}>
-                    💬 Messaging Center
-                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                </>
+              )}
+
+              {/* ✅ FAQ for everyone */}
+              <DropdownMenuItem onClick={() => onNavigate("faq")}>
+                <HelpCircle className="h-4 w-4 mr-2" />
+                FAQ
+              </DropdownMenuItem>
+
+              {/* ✅ Admin menu */}
+              {role === "admin" && (
+                <>
+                  <DropdownMenuSeparator />
+
+                  {/* ✅ Restore internal user menu items */}
                   <DropdownMenuItem onClick={() => onNavigate("all-auctions")}>
-                    📋 All Auctions
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => onNavigate("accounts")}>
-                    👥 All Accounts
+                    📋 {isPrivilegedAdmin ? "All Auctions" : "My Auctions"}
                   </DropdownMenuItem>
 
-                  {adminRole === "product_owner" && (
-                    <DropdownMenuItem onClick={() => onNavigate("manage-global-admins")}>
-                      🔐 Manage Global Administrators
-                    </DropdownMenuItem>
+                  {/* ✅ Privileged admin tools */}
+                  {isPrivilegedAdmin && (
+                    <>
+                      <DropdownMenuItem onClick={() => onNavigate("management-dashboard")}>
+                        📊 Management Dashboard
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => onNavigate("messaging-center")}>
+                        💬 Messaging Center
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => onNavigate("accounts")}>
+                        👥 All Accounts
+                      </DropdownMenuItem>
+
+                      {adminRole === "product_owner" && (
+                        <DropdownMenuItem onClick={() => onNavigate("manage-global-admins")}>
+                          🔐 Manage Global Administrators
+                        </DropdownMenuItem>
+                      )}
+                    </>
                   )}
 
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={onAdminLogout}>🚪 Logout</DropdownMenuItem>
-                </>
-              ) : (
-                <>
-                  <DropdownMenuItem onClick={() => onRoleChange("admin")}>
-                    🛡️ Employee View
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => onRoleChange("vendor")}>
-                    🏢 Vendor View
-                  </DropdownMenuItem>
-
-                  <DropdownMenuSeparator />
-
-                  <DropdownMenuItem onClick={() => onNavigate("all-auctions")}>
-                    📋 My Auctions
-                  </DropdownMenuItem>
-
+                  {/* ✅ Existing actions you had before */}
                   {onResetAuction && (
                     <>
                       <DropdownMenuSeparator />
@@ -225,14 +246,18 @@ export function Header({
                   {onCreateAuction && (
                     <>
                       <DropdownMenuSeparator />
-                      <DropdownMenuItem onClick={onCreateAuction}>🆕 Create New Auction</DropdownMenuItem>
+                      <DropdownMenuItem onClick={onCreateAuction}>
+                        🆕 Create New Auction
+                      </DropdownMenuItem>
                     </>
                   )}
 
                   {onAdminLogout && (
                     <>
                       <DropdownMenuSeparator />
-                      <DropdownMenuItem onClick={onAdminLogout}>Logout</DropdownMenuItem>
+                      <DropdownMenuItem onClick={onAdminLogout}>
+                        🚪 Logout
+                      </DropdownMenuItem>
                     </>
                   )}
                 </>

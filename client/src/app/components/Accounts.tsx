@@ -1,3 +1,4 @@
+// File: src/app/components/Accounts.tsx
 "use client";
 
 import { useState, useCallback } from "react";

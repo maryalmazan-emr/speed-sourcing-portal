@@ -22,7 +22,7 @@ public class BidsController : ControllerBase
         string company_name,
         string contact_name,
         string contact_phone,
-        int delivery_time_days,          // ✅ FIX: int to match BidEntity.DeliveryTimeDays
+        int delivery_time_days,
         decimal cost_per_unit,
         string notes
     );
@@ -45,7 +45,6 @@ public class BidsController : ControllerBase
         if (string.IsNullOrWhiteSpace(email))
             return BadRequest("vendor_email is required");
 
-        // ✅ FIX: decimal * int -> cast int to decimal
         var totalCost = dto.cost_per_unit * (decimal)auction.Quantity;
 
         var existing = await _db.Bids
@@ -62,7 +61,7 @@ public class BidsController : ControllerBase
                 CompanyName = dto.company_name ?? "",
                 ContactName = dto.contact_name ?? "",
                 ContactPhone = dto.contact_phone ?? "",
-                DeliveryTimeDays = dto.delivery_time_days,   // ✅ now matches int
+                DeliveryTimeDays = dto.delivery_time_days,
                 CostPerUnit = dto.cost_per_unit,
                 TotalCost = totalCost,
                 Notes = dto.notes ?? "",
@@ -76,7 +75,7 @@ public class BidsController : ControllerBase
             existing.CompanyName = dto.company_name ?? "";
             existing.ContactName = dto.contact_name ?? "";
             existing.ContactPhone = dto.contact_phone ?? "";
-            existing.DeliveryTimeDays = dto.delivery_time_days; // ✅ now matches int
+            existing.DeliveryTimeDays = dto.delivery_time_days;
             existing.CostPerUnit = dto.cost_per_unit;
             existing.TotalCost = totalCost;
             existing.Notes = dto.notes ?? "";
@@ -106,6 +105,36 @@ public class BidsController : ControllerBase
             notes = existing.Notes,
             submitted_at = existing.SubmittedAt
         });
+    }
+
+    // ✅ THIS is the endpoint your AdminDashboard is calling
+    [HttpGet("api/auctions/{auctionId}/bids")]
+    public async Task<IActionResult> GetAllBids(string auctionId)
+    {
+        if (!Guid.TryParse(auctionId, out var aid))
+            return BadRequest("Invalid auctionId");
+
+        var bids = await _db.Bids
+            .Where(b => b.AuctionId == aid)
+            .AsNoTracking()
+            .Select(b => new
+            {
+                id = b.Id.ToString(),
+                auction_id = b.AuctionId.ToString(),
+                vendor_email = b.VendorEmail,
+                vendor_company = b.VendorCompany,
+                company_name = b.CompanyName,
+                contact_name = b.ContactName,
+                contact_phone = b.ContactPhone,
+                delivery_time_days = b.DeliveryTimeDays,
+                cost_per_unit = b.CostPerUnit,
+                total_cost = b.TotalCost,
+                notes = b.Notes,
+                submitted_at = b.SubmittedAt
+            })
+            .ToListAsync();
+
+        return Ok(bids);
     }
 
     [HttpGet("api/auctions/{auctionId}/bids/vendor")]
