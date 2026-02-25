@@ -16,9 +16,7 @@ import {
 import { Copy, Check, ArrowRight, ArrowLeft, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
-// ✅ FIX: import from consolidated module
 import { apiCreateAuction, apiCreateInvites } from "@/lib/api";
-
 import { copyToClipboard } from "@/lib/clipboard";
 import {
   Select,
@@ -208,7 +206,6 @@ export function AdminSetup({ onComplete, adminSession }: AdminSetupProps) {
         return;
       }
 
-      // ✅ FIX: quantity should be a real numeric total (not number of rows)
       const totalQty = validParts.reduce((sum, p) => {
         const n = Number.parseInt(p.quantity, 10);
         return sum + (Number.isFinite(n) ? n : 0);
@@ -223,8 +220,10 @@ export function AdminSetup({ onComplete, adminSession }: AdminSetupProps) {
         .map((p) => `${p.part_number.trim()}: ${p.quantity.trim()}`)
         .join("; ");
 
+      const startIso = new Date(formData.start_date).toISOString();
+      const endIso = new Date(formData.end_date).toISOString();
+
       const auctionPayload = {
-        // ✅ server expects these core fields
         title: formData.name,
         description: formData.description,
         status: "active",
@@ -232,15 +231,18 @@ export function AdminSetup({ onComplete, adminSession }: AdminSetupProps) {
         quantity: totalQty,
         unit: "EA",
         delivery_location: formData.group_site,
-        starts_at: new Date(formData.start_date).toISOString(),
-        ends_at: new Date(formData.end_date).toISOString(),
+        starts_at: startIso,
+        ends_at: endIso,
         winner_vendor_email: null,
 
-        // metadata (kept)
+        // ✅ primary fields (ASP.NET uses these)
         created_by_email: adminSession.email,
         created_by_company: adminSession.name,
 
-        // optional fields (kept)
+        // ✅ compatibility fields (harmless to ASP.NET, prevents “wrong backend” 400s)
+        created_by_admin_email: adminSession.email,
+        createdByAdminEmail: adminSession.email,
+
         date_requested: formData.date_requested,
         requestor: formData.requestor,
         requestor_email: formData.requestor_email,
@@ -252,7 +254,6 @@ export function AdminSetup({ onComplete, adminSession }: AdminSetupProps) {
 
       const created = await apiCreateAuction(auctionPayload as any);
 
-      // ✅ FIX: handle multiple possible response shapes
       const auctionId =
         (created as any)?.id ??
         (created as any)?.auction?.id ??
@@ -524,12 +525,7 @@ export function AdminSetup({ onComplete, adminSession }: AdminSetupProps) {
       <div className="flex items-center justify-between mt-6">
         <div>
           {step > 1 && (
-            <Button
-              variant="outline"
-              onClick={handleBack}
-              disabled={loading}
-              type="button"
-            >
+            <Button variant="outline" onClick={handleBack} disabled={loading} type="button">
               <ArrowLeft className="h-4 w-4 mr-2" />
               Back
             </Button>
@@ -537,11 +533,7 @@ export function AdminSetup({ onComplete, adminSession }: AdminSetupProps) {
         </div>
 
         <div className="flex gap-2">
-          <Button
-            onClick={step === 3 ? launchAuction : handleNext}
-            disabled={loading}
-            type="button"
-          >
+          <Button onClick={step === 3 ? launchAuction : handleNext} disabled={loading} type="button">
             {loading ? "Processing..." : step === 3 ? "Submit & Launch" : "Next"}
             {step < 3 && <ArrowRight className="h-4 w-4 ml-2" />}
           </Button>

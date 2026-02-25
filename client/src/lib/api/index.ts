@@ -1,36 +1,30 @@
 // File: src/lib/api/index.ts
 
-// ✅ Core API helpers (fetch wrappers, shared endpoints)
+// ✅ Auctions
 export {
   apiGetAuctions,
   apiGetAuction,
   apiCreateAuction,
   apiUpdateAuction,
-  apiMigrateInvites,
-  apiValidateVendorToken,
-  apiUpdateVendorAccess,
-  apiGetVendorBid,
-} from "./api";
+} from "./auctions";
 
-// ✅ Domain-specific APIs
+// ✅ Invites
 export {
   apiGetInvites,
   apiCreateInvites,
+  apiMigrateInvites,
 } from "./invites";
 
+// ✅ Bids
 export {
   apiGetBids,
   apiSubmitBid,
+  apiGetVendorBid,
+  apiGetVendorRankInfo,
 } from "./bids";
 
-export async function apiGetVendorRankInfo(
-  auctionId: string,
-  vendorEmail: string
-) {
-  return fetch(
-    `/api/auctions/${auctionId}/rank?vendorEmail=${encodeURIComponent(vendorEmail)}`
-  ).then(res => {
-    if (!res.ok) throw new Error("Failed to fetch vendor rank");
-    return res.json();
-  });
-}
+// ✅ Vendor auth
+export {
+  apiValidateVendorToken,
+  apiUpdateVendorAccess,
+} from "./vendor";

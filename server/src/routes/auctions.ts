@@ -1,3 +1,4 @@
+//File: server/src/routes/auctions.ts
 import { Router } from "express";
 import { hasSql, getPool } from "../db.js";
 import { createAuction, getAuction, listAuctions } from "../store.js";

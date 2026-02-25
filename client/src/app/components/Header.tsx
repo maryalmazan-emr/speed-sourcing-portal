@@ -2,7 +2,7 @@
 
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/app/components/ui/button";
 import {
   DropdownMenu,
@@ -11,11 +11,15 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from "@/app/components/ui/dropdown-menu";
-import { Menu, HelpCircle, ArrowLeft, RotateCcw } from "lucide-react";
+import { Menu, HelpCircle, RotateCcw, Gavel } from "lucide-react";
 import logo from "@/assets/logo.png";
 import { getRoleName } from "@/lib/adminAuth";
 import { ThemeToggle } from "@/app/components/ThemeToggle";
 import { NotificationBell } from "@/app/components/NotificationBell";
+import { cn } from "@/lib/utils";
+import type { View } from "@/lib/view";
+import { getViewFromHash } from "@/lib/view";
+import { getPermissions } from "@/lib/permissions";
 
 interface Auction {
   starts_at?: string;
@@ -26,8 +30,7 @@ interface Auction {
 interface HeaderProps {
   auction: Auction | null;
   role: "admin" | "vendor";
-  currentView: string; // tells Header where we are (e.g., "faq")
-  onNavigate: (view: string) => void;
+  onNavigate: (view: View) => void;
   onResetAuction?: () => void;
   onCreateAuction?: () => void;
   onAdminLogout?: () => void;
@@ -43,7 +46,6 @@ interface HeaderProps {
 export function Header({
   auction,
   role,
-  currentView,
   onNavigate,
   onResetAuction,
   onCreateAuction,
@@ -54,6 +56,17 @@ export function Header({
 }: HeaderProps) {
   const [timeLeft, setTimeLeft] = useState("");
   const [isWarning, setIsWarning] = useState(false);
+
+  // ---- Active view (no props) ----
+  const [activeView, setActiveView] = useState<View | null>(() => getViewFromHash());
+
+  useEffect(() => {
+    const onHash = () => setActiveView(getViewFromHash());
+    window.addEventListener("hashchange", onHash);
+    return () => window.removeEventListener("hashchange", onHash);
+  }, []);
+
+  const perms = useMemo(() => getPermissions(role, adminRole), [role, adminRole]);
 
   useEffect(() => {
     if (!auction?.ends_at) {
@@ -114,11 +127,11 @@ export function Header({
     return () => clearInterval(interval);
   }, [auction]);
 
-  // ✅ ONLY show Back to Auction when vendor is on FAQ
-  const showBackToAuctionInMenu =
-    currentView === "faq" && role === "vendor" && Boolean(auction);
-
-  const isPrivilegedAdmin = adminRole === "product_owner" || adminRole === "global_admin";
+  const itemClass = (view: View) =>
+    cn(
+      "cursor-pointer",
+      activeView === view && "bg-gray-100 dark:bg-gray-700 font-medium"
+    );
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-white dark:bg-gray-800 shadow-sm">
@@ -174,7 +187,7 @@ export function Header({
             adminRole={adminRole}
           />
 
-          {/* ✅ MENU */}
+          {/* MENU */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="sm" type="button">
@@ -184,70 +197,97 @@ export function Header({
             </DropdownMenuTrigger>
 
             <DropdownMenuContent align="end" className="w-56">
-              {/* ✅ Vendor-only: Back to Auction ONLY on FAQ */}
-              {showBackToAuctionInMenu && (
+              {/* Vendor menu */}
+              {role === "vendor" && (
                 <>
-                  <DropdownMenuItem onClick={() => onNavigate("vendor-dashboard")}>
-                    <ArrowLeft className="h-4 w-4 mr-2" />
-                    Back to Auction
+                  <DropdownMenuItem
+                    className={itemClass("vendor-dashboard")}
+                    onClick={() => onNavigate("vendor-dashboard")}
+                  >
+                    <Gavel className="h-4 w-4 mr-2" />
+                    Auction
                   </DropdownMenuItem>
-                  <DropdownMenuSeparator />
+
+                  <DropdownMenuItem
+                    className={itemClass("faq")}
+                    onClick={() => onNavigate("faq")}
+                  >
+                    <HelpCircle className="h-4 w-4 mr-2" />
+                    FAQ
+                  </DropdownMenuItem>
                 </>
               )}
 
-              {/* ✅ FAQ for everyone */}
-              <DropdownMenuItem onClick={() => onNavigate("faq")}>
-                <HelpCircle className="h-4 w-4 mr-2" />
-                FAQ
-              </DropdownMenuItem>
-
-              {/* ✅ Admin menu */}
+              {/* Admin menu */}
               {role === "admin" && (
                 <>
-                  <DropdownMenuSeparator />
-
-                  {/* ✅ Restore internal user menu items */}
-                  <DropdownMenuItem onClick={() => onNavigate("all-auctions")}>
-                    📋 {isPrivilegedAdmin ? "All Auctions" : "My Auctions"}
+                  <DropdownMenuItem
+                    className={itemClass("all-auctions")}
+                    onClick={() => onNavigate("all-auctions")}
+                  >
+                    📋 {perms.auctionsLabel}
                   </DropdownMenuItem>
 
-                  {/* ✅ Privileged admin tools */}
-                  {isPrivilegedAdmin && (
-                    <>
-                      <DropdownMenuItem onClick={() => onNavigate("management-dashboard")}>
-                        📊 Management Dashboard
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => onNavigate("messaging-center")}>
-                        💬 Messaging Center
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => onNavigate("accounts")}>
-                        👥 All Accounts
-                      </DropdownMenuItem>
-
-                      {adminRole === "product_owner" && (
-                        <DropdownMenuItem onClick={() => onNavigate("manage-global-admins")}>
-                          🔐 Manage Global Administrators
-                        </DropdownMenuItem>
-                      )}
-                    </>
+                  {perms.canCreateAuction && (
+                    <DropdownMenuItem onClick={() => onCreateAuction?.()}>
+                      🆕 Create New Auction
+                    </DropdownMenuItem>
                   )}
 
-                  {/* ✅ Existing actions you had before */}
+                  <DropdownMenuSeparator />
+
+                  {perms.canAccessManagementDashboard && (
+                    <DropdownMenuItem
+                      className={itemClass("management-dashboard")}
+                      onClick={() => onNavigate("management-dashboard")}
+                    >
+                      📊 Management Dashboard
+                    </DropdownMenuItem>
+                  )}
+
+                  {perms.canUseMessagingCenter && (
+                    <DropdownMenuItem
+                      className={itemClass("messaging-center")}
+                      onClick={() => onNavigate("messaging-center")}
+                    >
+                      💬 Messaging Center
+                    </DropdownMenuItem>
+                  )}
+
+                  {perms.canAccessAccounts && (
+                    <DropdownMenuItem
+                      className={itemClass("accounts")}
+                      onClick={() => onNavigate("accounts")}
+                    >
+                      👥 All Accounts
+                    </DropdownMenuItem>
+                  )}
+
+                  {perms.canManageGlobalAdmins && (
+                    <DropdownMenuItem
+                      className={itemClass("manage-global-admins")}
+                      onClick={() => onNavigate("manage-global-admins")}
+                    >
+                      🔐 Manage Global Administrators
+                    </DropdownMenuItem>
+                  )}
+
+                  <DropdownMenuSeparator />
+
+                  <DropdownMenuItem
+                    className={itemClass("faq")}
+                    onClick={() => onNavigate("faq")}
+                  >
+                    <HelpCircle className="h-4 w-4 mr-2" />
+                    FAQ
+                  </DropdownMenuItem>
+
                   {onResetAuction && (
                     <>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem onClick={onResetAuction}>
                         <RotateCcw className="h-4 w-4 mr-2" />
                         Exit Current Auction
-                      </DropdownMenuItem>
-                    </>
-                  )}
-
-                  {onCreateAuction && (
-                    <>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem onClick={onCreateAuction}>
-                        🆕 Create New Auction
                       </DropdownMenuItem>
                     </>
                   )}

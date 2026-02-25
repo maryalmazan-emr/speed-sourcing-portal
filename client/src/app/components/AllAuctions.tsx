@@ -7,16 +7,10 @@ import type { MouseEvent } from "react";
 
 import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/app/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/app/components/ui/card";
 import { Badge } from "@/app/components/ui/badge";
-import { ArrowLeft, Crown, Search, Trash2 } from "lucide-react";
-import { apiGetAuctions } from "@/lib/api/api";
+import { Crown, Search, Trash2 } from "lucide-react";
+import { apiGetAuctions } from "@/lib/api"; // ✅ FIXED IMPORT
 import { hasGlobalAccess, canDelete, getRoleName } from "@/lib/adminAuth";
 import { toast } from "sonner";
 
@@ -41,14 +35,12 @@ type AuctionLike = {
 };
 
 interface AllAuctionsProps {
-  onBack: () => void;
   onSelectAuction: (auction: AuctionLike) => void;
   adminEmail: string;
   userRole: UserRole;
 }
 
 export function AllAuctions({
-  onBack,
   onSelectAuction,
   adminEmail,
   userRole,
@@ -57,14 +49,13 @@ export function AllAuctions({
   const canDeleteAuctions = canDelete(userRole);
 
   const [auctions, setAuctions] = useState<AuctionLike[]>([]);
-  const [filter, setFilter] = useState<"all" | "active" | "scheduled" | "awarded">(
-    "all"
-  );
+  const [filter, setFilter] = useState<"all" | "active" | "scheduled" | "awarded">("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     void loadAuctions();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasGlobalView, adminEmail]);
 
   const loadAuctions = async (): Promise<void> => {
@@ -170,14 +161,7 @@ export function AllAuctions({
   return (
     <div className="container mx-auto px-4 py-8" style={{ maxWidth: "1180px" }}>
       <div className="mb-6">
-        <Button variant="outline" onClick={onBack} className="mb-4" type="button">
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Back
-        </Button>
-
-        <h1 className="text-3xl font-bold">
-          {hasGlobalView ? "All Auctions" : "My Auctions"}
-        </h1>
+        <h1 className="text-3xl font-bold">{hasGlobalView ? "All Auctions" : "My Auctions"}</h1>
 
         <p className="text-gray-600 mt-1">
           {hasGlobalView
@@ -252,9 +236,7 @@ export function AllAuctions({
                         variant="outline"
                         size="sm"
                         className="text-red-600"
-                        onClick={e =>
-                          handleDeleteAuction(auction.title ?? auction.id, e)
-                        }
+                        onClick={e => handleDeleteAuction(auction.title ?? auction.id, e)}
                         type="button"
                       >
                         <Trash2 className="h-4 w-4" />

@@ -1,3 +1,4 @@
+// File: server/src/store.ts
 import crypto from "node:crypto";
 import type { Admin, AdminRole, Auction } from "./types.js";
 

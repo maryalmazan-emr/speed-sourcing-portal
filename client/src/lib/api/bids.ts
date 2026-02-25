@@ -1,11 +1,10 @@
-// file: src/lib/api/bids.ts
+// File: src/lib/api/bids.ts
 import { apiGet, apiPost } from "@/lib/api/_client";
 
 export function apiGetBids(auctionId: string) {
   return apiGet<any[]>(`/api/auctions/${auctionId}/bids`);
 }
 
-// ✅ matches your VendorDashboard usage: apiSubmitBid({ auction_id: ... })
 export function apiSubmitBid(payload: {
   auction_id: string;
   vendor_email: string;
@@ -22,17 +21,12 @@ export function apiSubmitBid(payload: {
 
 export function apiGetVendorBid(auctionId: string, vendorEmail: string) {
   return apiGet<any>(
-    `/api/auctions/${auctionId}/bids/vendor?vendorEmail=${encodeURIComponent(
-      vendorEmail
-    )}`
+    `/api/auctions/${auctionId}/bids/vendor?vendorEmail=${encodeURIComponent(vendorEmail)}`
   );
 }
 
-// ✅ matches BidsController.GetRank
 export function apiGetVendorRankInfo(auctionId: string, vendorEmail: string) {
   return apiGet<any>(
-    `/api/auctions/${auctionId}/rank?vendorEmail=${encodeURIComponent(
-      vendorEmail
-    )}`
+    `/api/auctions/${auctionId}/rank?vendorEmail=${encodeURIComponent(vendorEmail)}`
   );
 }

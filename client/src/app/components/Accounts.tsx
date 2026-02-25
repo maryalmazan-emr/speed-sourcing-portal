@@ -1,4 +1,5 @@
 // File: src/app/components/Accounts.tsx
+
 "use client";
 
 import { useState, useCallback } from "react";
@@ -6,78 +7,31 @@ import type { Admin } from "@/lib/backend";
 
 import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/app/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/app/components/ui/card";
 import { Badge } from "@/app/components/ui/badge";
-import { ArrowLeft, RefreshCw } from "lucide-react";
+import { RefreshCw } from "lucide-react";
 
-import { apiGetAllAdmins } from "@/lib/api/api"; 
-import { hasGlobalAccess, getRoleName } from "@/lib/adminAuth";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/app/components/ui/table";
-import {
-  useRealTimeData,
-  LastUpdateIndicator,
-} from "@/lib/useRealTimeData";
+import { apiGetAllAdmins } from "@/lib/api/api";
+import { getRoleName } from "@/lib/adminAuth";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/app/components/ui/table";
+import { useRealTimeData, LastUpdateIndicator } from "@/lib/useRealTimeData";
 
 interface AccountsProps {
-  onBack: () => void;
   adminEmail: string;
   userRole: "product_owner" | "global_admin" | "internal_user" | "external_guest";
 }
 
 export function Accounts({
-  onBack,
-  adminEmail: _adminEmail, // reserved for SignalR user scoping
+  adminEmail: _adminEmail,
   userRole,
 }: AccountsProps) {
-  const hasGlobalView = hasGlobalAccess(userRole);
   const [searchTerm, setSearchTerm] = useState("");
-
-  if (!hasGlobalView) {
-    return (
-      <div className="container mx-auto px-4 py-8">
-        <Button variant="outline" onClick={onBack} className="mb-4">
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Back
-        </Button>
-
-        <Card>
-          <CardContent className="py-12 text-center">
-            <h2 className="text-2xl font-bold mb-2">Access Denied</h2>
-            <p className="text-gray-600">
-              Only Product Owner and Global Administrators can view all accounts.
-            </p>
-            <p className="text-sm text-gray-500 mt-2">
-              Your role: {getRoleName(userRole)}
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
 
   const fetchAdmins = useCallback(async (): Promise<Admin[]> => {
     return (await apiGetAllAdmins()) ?? [];
   }, []);
 
-  const {
-    data: adminsData,
-    loading,
-    lastUpdate,
-    refresh,
-  } = useRealTimeData<Admin[]>({
+  const { data: adminsData, loading, lastUpdate, refresh } = useRealTimeData<Admin[]>({
     fetchData: fetchAdmins,
     pollingInterval: 5000,
     storageKey: "admins",
@@ -101,12 +55,7 @@ export function Accounts({
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <Button variant="outline" onClick={onBack} className="mb-4">
-        <ArrowLeft className="h-4 w-4 mr-2" />
-        Back
-      </Button>
-
+    <div className="container mx-auto px-4 py-8" style={{ maxWidth: "1180px" }}>
       <div className="flex items-center justify-between mb-2">
         <h1 className="text-3xl font-bold">All Accounts</h1>
         <div className="flex items-center gap-4">
@@ -149,10 +98,21 @@ export function Accounts({
                   </TableCell>
                 </TableRow>
               ))}
+              {filteredAdmins.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={3} className="text-center py-6 text-gray-500">
+                    No accounts found
+                  </TableCell>
+                </TableRow>
+              ) : null}
             </TableBody>
           </Table>
         </CardContent>
       </Card>
+
+      <div className="mt-4 text-xs text-gray-500">
+        Viewing as: {getRoleName(userRole)}
+      </div>
     </div>
   );
 }

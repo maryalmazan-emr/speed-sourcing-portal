@@ -1,7 +1,19 @@
 // File: src/lib/api/_client.ts
+console.log("VITE_API_BASE =", import.meta.env.VITE_API_BASE);
 
-// Vite exposes env vars via import.meta.env, and only VITE_* are available to client code.
-const API_BASE = (import.meta.env.VITE_API_BASE as string | undefined) ?? ""; // [1](https://emerson.sharepoint.com/sites/AutoSol/IT/SDC/Cloud-Native/_layouts/15/Doc.aspx?sourcedoc=%7BBA59F881-23D2-40A6-ADB7-E37B3AA89351%7D&file=Web%20Application%28custom%20domain%29.docx&action=default&mobileredirect=true&DefaultItemOpen=1)
+
+
+const API_BASE = (import.meta.env.VITE_API_BASE as string | undefined) ?? "";
+
+async function readJsonSafe<T>(res: Response): Promise<T> {
+  const text = await res.text();
+  return (text ? JSON.parse(text) : undefined) as T;
+}
+
+async function throwHttpError(method: string, url: string, res: Response): Promise<never> {
+  const body = await res.text();
+  throw new Error(`${method} ${url} failed (${res.status}) ${body}`);
+}
 
 export async function apiGet<T>(url: string): Promise<T> {
   const res = await fetch(`${API_BASE}${url}`, {
@@ -9,8 +21,8 @@ export async function apiGet<T>(url: string): Promise<T> {
     headers: { "Content-Type": "application/json" },
   });
 
-  if (!res.ok) throw new Error(`GET ${url} failed (${res.status})`);
-  return res.json();
+  if (!res.ok) return throwHttpError("GET", url, res);
+  return readJsonSafe<T>(res);
 }
 
 export async function apiPost<T>(url: string, body: unknown): Promise<T> {
@@ -20,11 +32,8 @@ export async function apiPost<T>(url: string, body: unknown): Promise<T> {
     body: JSON.stringify(body),
   });
 
-  if (!res.ok) throw new Error(`POST ${url} failed (${res.status})`);
-
-  // Some endpoints return 204; keep this safe
-  const text = await res.text();
-  return (text ? JSON.parse(text) : undefined) as T;
+  if (!res.ok) return throwHttpError("POST", url, res);
+  return readJsonSafe<T>(res);
 }
 
 export async function apiPatch<T>(url: string, body: unknown): Promise<T> {
@@ -34,8 +43,6 @@ export async function apiPatch<T>(url: string, body: unknown): Promise<T> {
     body: JSON.stringify(body),
   });
 
-  if (!res.ok) throw new Error(`PATCH ${url} failed (${res.status})`);
-
-  const text = await res.text();
-  return (text ? JSON.parse(text) : undefined) as T;
+  if (!res.ok) return throwHttpError("PATCH", url, res);
+  return readJsonSafe<T>(res);
 }

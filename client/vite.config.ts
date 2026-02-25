@@ -1,3 +1,5 @@
+// File: client/vite.config.ts
+
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import tsconfigPaths from "vite-tsconfig-paths";
@@ -8,13 +10,9 @@ export default defineConfig({
   server: {
     proxy: {
       "/api": {
-        target: "http://localhost:3001",
-        changeOrigin: true
+        target: "http://localhost:5053",
+        changeOrigin: true,
       },
-      "/health": {
-        target: "http://localhost:3001",
-        changeOrigin: true
-      }
-    }
-  }
+    },
+  },
 });

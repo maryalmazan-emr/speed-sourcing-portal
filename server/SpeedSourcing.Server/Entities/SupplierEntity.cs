@@ -1,3 +1,4 @@
+// File: server/SpeedSourcing.Server/Entities/SupplierEntity.cs
 using System.ComponentModel.DataAnnotations;
 
 public class SupplierEntity

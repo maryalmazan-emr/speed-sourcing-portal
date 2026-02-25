@@ -1,3 +1,5 @@
+--File: server/sql/schema.sql
+
 -- Azure SQL schema for Speed Sourcing Portal (minimal)
 -- Run on your Azure SQL database.
 

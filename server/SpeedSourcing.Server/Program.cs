@@ -1,5 +1,6 @@
 // file: server/SpeedSourcing.Server/Program.cs
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.HttpOverrides; // ✅ ADD
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -7,6 +8,11 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+
+// =======================
+// ✅ Email sender (SMTP)
+// =======================
+builder.Services.AddScoped<IEmailSender, SmtpEmailSender>();
 
 // =======================
 // Database mode switch
@@ -68,6 +74,17 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
+// =======================
+// ✅ Forwarded headers (IMPORTANT for invite links)
+// =======================
+app.UseForwardedHeaders(new ForwardedHeadersOptions
+{
+    ForwardedHeaders =
+        ForwardedHeaders.XForwardedFor |
+        ForwardedHeaders.XForwardedProto |
+        ForwardedHeaders.XForwardedHost
+});
+
 // Swagger: enable for local/dev convenience
 if (app.Environment.IsDevelopment())
 {
@@ -93,7 +110,6 @@ if (app.Environment.IsDevelopment())
     using var scope = app.Services.CreateScope();
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
-    // Only seed if empty
     if (!db.Auctions.Any())
     {
         var adminId = Guid.NewGuid();
@@ -135,24 +151,6 @@ if (app.Environment.IsDevelopment())
 
         db.Auctions.Add(auction);
         db.VendorInvites.Add(invite);
-
-        // Optional: seed a bid as well (uncomment if you want rank to show immediately)
-        // db.Bids.Add(new BidEntity
-        // {
-        //     Id = Guid.NewGuid(),
-        //     AuctionId = auctionId,
-        //     VendorEmail = "supplier@example.com",
-        //     VendorCompany = "Supplier Co",
-        //     CompanyName = "Supplier Co",
-        //     ContactName = "Dev Supplier",
-        //     ContactPhone = "555-0100",
-        //     DeliveryTimeDays = 14,
-        //     CostPerUnit = 12.34m,
-        //     TotalCost = 12.34m * 10m,
-        //     Notes = "Seed bid",
-        //     SubmittedAt = DateTimeOffset.UtcNow
-        // });
-
         db.SaveChanges();
 
         Console.WriteLine($"[DEV SEED] AuctionId: {auctionId}");

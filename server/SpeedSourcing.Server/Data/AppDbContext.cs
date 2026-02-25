@@ -1,3 +1,6 @@
+// file: server/SpeedSourcing.Server/Data/AppDbContext.cs
+using Microsoft.AspNetCore.Mvc;
+
 using Microsoft.EntityFrameworkCore;
 
 public class AppDbContext : DbContext

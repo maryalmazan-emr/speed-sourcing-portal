@@ -1,3 +1,5 @@
+// File: server/SpeedSourcing.Server/Entities/VendorEntity.cs
+
 using System.ComponentModel.DataAnnotations;
 
 public class VendorInviteEntity
