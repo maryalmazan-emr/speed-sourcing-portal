@@ -1,4 +1,4 @@
-// file: server/SpeedSourcing.Server/Controllers/BidsController.cs
+// File: server/SpeedSourcing.Server/Controllers/BidsController.cs
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
@@ -15,18 +15,23 @@ public class BidsController : ControllerBase
         _hub = hub;
     }
 
+    // ✅ Nullable-aware DTO: JSON may omit fields or send null
     public record SubmitBidDto(
-        string auction_id,
-        string vendor_email,
-        string vendor_company,
-        string company_name,
-        string contact_name,
-        string contact_phone,
+        string? auction_id,
+        string? vendor_email,
+        string? vendor_company,
+        string? company_name,
+        string? contact_name,
+        string? contact_phone,
         int delivery_time_days,
         decimal cost_per_unit,
-        string notes
+        string? notes
     );
 
+    // --------------------------------------------------
+    // POST: /api/auctions/{auctionId}/bids
+    // Vendor submits or updates their bid
+    // --------------------------------------------------
     [HttpPost("api/auctions/{auctionId}/bids")]
     public async Task<IActionResult> Submit(string auctionId, [FromBody] SubmitBidDto dto)
     {
@@ -45,6 +50,13 @@ public class BidsController : ControllerBase
         if (string.IsNullOrWhiteSpace(email))
             return BadRequest("vendor_email is required");
 
+        if (dto.delivery_time_days <= 0)
+            return BadRequest("delivery_time_days must be > 0");
+
+        if (dto.cost_per_unit <= 0)
+            return BadRequest("cost_per_unit must be > 0");
+
+        // ✅ decimal * int -> cast int to decimal
         var totalCost = dto.cost_per_unit * (decimal)auction.Quantity;
 
         var existing = await _db.Bids
@@ -57,33 +69,34 @@ public class BidsController : ControllerBase
                 Id = Guid.NewGuid(),
                 AuctionId = aid,
                 VendorEmail = email,
-                VendorCompany = dto.vendor_company ?? "",
-                CompanyName = dto.company_name ?? "",
-                ContactName = dto.contact_name ?? "",
-                ContactPhone = dto.contact_phone ?? "",
+                VendorCompany = (dto.vendor_company ?? "").Trim(),
+                CompanyName = (dto.company_name ?? "").Trim(),
+                ContactName = (dto.contact_name ?? "").Trim(),
+                ContactPhone = (dto.contact_phone ?? "").Trim(),
                 DeliveryTimeDays = dto.delivery_time_days,
                 CostPerUnit = dto.cost_per_unit,
                 TotalCost = totalCost,
-                Notes = dto.notes ?? "",
+                Notes = (dto.notes ?? "").Trim(),
                 SubmittedAt = now
             };
             _db.Bids.Add(existing);
         }
         else
         {
-            existing.VendorCompany = dto.vendor_company ?? "";
-            existing.CompanyName = dto.company_name ?? "";
-            existing.ContactName = dto.contact_name ?? "";
-            existing.ContactPhone = dto.contact_phone ?? "";
+            existing.VendorCompany = (dto.vendor_company ?? "").Trim();
+            existing.CompanyName = (dto.company_name ?? "").Trim();
+            existing.ContactName = (dto.contact_name ?? "").Trim();
+            existing.ContactPhone = (dto.contact_phone ?? "").Trim();
             existing.DeliveryTimeDays = dto.delivery_time_days;
             existing.CostPerUnit = dto.cost_per_unit;
             existing.TotalCost = totalCost;
-            existing.Notes = dto.notes ?? "";
+            existing.Notes = (dto.notes ?? "").Trim();
             existing.SubmittedAt = now;
         }
 
         await _db.SaveChangesAsync();
 
+        // ✅ Notify listeners (admin dashboards / any clients subscribed)
         await _hub.Clients.Group($"auction:{auctionId}")
             .SendAsync("bidChanged", new { auctionId });
 
@@ -107,16 +120,24 @@ public class BidsController : ControllerBase
         });
     }
 
-    // ✅ THIS is the endpoint your AdminDashboard is calling
+    // --------------------------------------------------
+    // ✅ GET: /api/auctions/{auctionId}/bids
+    // AdminDashboard Leaderboard consumes this
+    // --------------------------------------------------
     [HttpGet("api/auctions/{auctionId}/bids")]
     public async Task<IActionResult> GetAllBids(string auctionId)
     {
         if (!Guid.TryParse(auctionId, out var aid))
             return BadRequest("Invalid auctionId");
 
+        // Stable ordering to match your AdminDashboard sort:
+        // delivery_time_days asc, cost_per_unit asc, submitted_at asc
         var bids = await _db.Bids
             .Where(b => b.AuctionId == aid)
             .AsNoTracking()
+            .OrderBy(b => b.DeliveryTimeDays)
+            .ThenBy(b => b.CostPerUnit)
+            .ThenBy(b => b.SubmittedAt)
             .Select(b => new
             {
                 id = b.Id.ToString(),
@@ -137,8 +158,12 @@ public class BidsController : ControllerBase
         return Ok(bids);
     }
 
+    // --------------------------------------------------
+    // GET: /api/auctions/{auctionId}/bids/vendor?vendorEmail=
+    // Vendor-specific fetch (used by vendor UI)
+    // --------------------------------------------------
     [HttpGet("api/auctions/{auctionId}/bids/vendor")]
-    public async Task<IActionResult> GetVendorBid(string auctionId, [FromQuery] string vendorEmail)
+    public async Task<IActionResult> GetVendorBid(string auctionId, [FromQuery] string? vendorEmail)
     {
         if (!Guid.TryParse(auctionId, out var aid))
             return BadRequest("Invalid auctionId");
@@ -170,19 +195,42 @@ public class BidsController : ControllerBase
         });
     }
 
+    // --------------------------------------------------
+    // ✅ GET: /api/auctions/{auctionId}/rank?vendorEmail=
+    // Matches frontend expectations:
+    // - rank
+    // - total_bids
+    // - leading_delivery_time_days
+    // - leading_cost_per_unit
+    // - vendor_bid
+    // --------------------------------------------------
     [HttpGet("api/auctions/{auctionId}/rank")]
-    public async Task<IActionResult> GetRank(string auctionId, [FromQuery] string vendorEmail)
+    public async Task<IActionResult> GetRank(string auctionId, [FromQuery] string? vendorEmail)
     {
         if (!Guid.TryParse(auctionId, out var aid))
             return BadRequest("Invalid auctionId");
 
-        var bids = await _db.Bids.Where(b => b.AuctionId == aid)
+        var bids = await _db.Bids
+            .Where(b => b.AuctionId == aid)
             .AsNoTracking()
             .ToListAsync();
 
+        if (bids.Count == 0)
+        {
+            return Ok(new
+            {
+                rank = 0,
+                total_bids = 0,
+                leading_delivery_time_days = 0,
+                leading_cost_per_unit = 0m,
+                vendor_bid = (object?)null
+            });
+        }
+
         var ranked = bids
             .OrderBy(b => b.DeliveryTimeDays)
-            .ThenBy(b => b.TotalCost)
+            .ThenBy(b => b.CostPerUnit)
+            .ThenBy(b => b.SubmittedAt)
             .Select((b, idx) => new { bid = b, rank = idx + 1 })
             .ToList();
 
@@ -192,11 +240,11 @@ public class BidsController : ControllerBase
 
         return Ok(new
         {
-            your_rank = your?.rank ?? 0,
-            total_participants = bids.Count,
-            leading_delivery_time = leader?.bid.DeliveryTimeDays ?? 0,
-            leading_cost = leader?.bid.TotalCost ?? 0,
-            your_bid = your == null ? null : new
+            rank = your?.rank ?? 0,
+            total_bids = ranked.Count,
+            leading_delivery_time_days = leader?.bid.DeliveryTimeDays ?? 0,
+            leading_cost_per_unit = leader?.bid.CostPerUnit ?? 0m,
+            vendor_bid = your == null ? null : new
             {
                 id = your.bid.Id.ToString(),
                 auction_id = your.bid.AuctionId.ToString(),

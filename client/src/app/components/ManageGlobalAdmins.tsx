@@ -1,4 +1,4 @@
-// File: src/app/components/ManageGlobalAdmins.tsx
+// File: client/src/app/components/ManageGlobalAdmins.tsx
 
 "use client";
 
@@ -92,7 +92,6 @@ export function ManageGlobalAdmins({ onBack }: ManageGlobalAdminsProps) {
       setNewName("");
       setDialogOpen(false);
 
-      // Refresh list
       await loadAdmins();
     } catch (error: any) {
       console.error("Error creating admin:", error);
@@ -134,10 +133,9 @@ export function ManageGlobalAdmins({ onBack }: ManageGlobalAdminsProps) {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-6">
       <div className="max-w-6xl mx-auto">
-        {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-4">
-            <Button variant="outline" size="sm" onClick={onBack}>
+            <Button variant="outline" size="sm" onClick={onBack} type="button">
               <ArrowLeft className="h-4 w-4 mr-2" />
               Back
             </Button>
@@ -154,13 +152,13 @@ export function ManageGlobalAdmins({ onBack }: ManageGlobalAdminsProps) {
 
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild>
-              <Button className="bg-[#004b8d] hover:bg-[#003d73] text-white">
+              <Button className="bg-[#004b8d] hover:bg-[#003d73] text-white" type="button">
                 <UserPlus className="h-4 w-4 mr-2" />
                 Add Global Administrator
               </Button>
             </DialogTrigger>
 
-            <DialogContent className="sm:max-w-[500px]">
+            <DialogContent className="sm:max-w-125">
               <DialogHeader>
                 <DialogTitle>Add Global Administrator</DialogTitle>
                 <DialogDescription>Create a new Global Administrator account.</DialogDescription>
@@ -201,13 +199,14 @@ export function ManageGlobalAdmins({ onBack }: ManageGlobalAdminsProps) {
               </div>
 
               <DialogFooter>
-                <Button variant="outline" onClick={() => setDialogOpen(false)}>
+                <Button variant="outline" onClick={() => setDialogOpen(false)} type="button">
                   Cancel
                 </Button>
                 <Button
-                  onClick={handleCreateAdmin}
+                  onClick={() => void handleCreateAdmin()}
                   disabled={creating}
                   className="bg-[#004b8d] hover:bg-[#003d73] text-white"
+                  type="button"
                 >
                   {creating ? "Creating..." : "Create Administrator"}
                 </Button>
@@ -216,7 +215,6 @@ export function ManageGlobalAdmins({ onBack }: ManageGlobalAdminsProps) {
           </Dialog>
         </div>
 
-        {/* Stats */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
           <Card>
             <CardHeader className="pb-3">
@@ -241,7 +239,6 @@ export function ManageGlobalAdmins({ onBack }: ManageGlobalAdminsProps) {
           </Card>
         </div>
 
-        {/* Table */}
         <Card>
           <CardHeader>
             <CardTitle>Administrator Accounts</CardTitle>

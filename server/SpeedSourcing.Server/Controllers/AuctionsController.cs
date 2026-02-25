@@ -1,4 +1,4 @@
-// file: server/SpeedSourcing.Server/Controllers/AuctionsController.cs
+// File: server/SpeedSourcing.Server/Controllers/AuctionsController.cs
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json.Serialization;
@@ -13,7 +13,7 @@ public class AuctionsController : ControllerBase
         _db = db;
     }
 
-    // DTO matches your frontend payload (snake_case)
+    // DTO matches frontend payload (snake_case)
     public class CreateAuctionDto
     {
         [JsonPropertyName("title")]
@@ -63,7 +63,6 @@ public class AuctionsController : ControllerBase
         [JsonPropertyName("created_by_admin_email")]
         public string? CreatedByAdminEmail { get; set; }
 
-        // UI sends camelCase variant too
         [JsonPropertyName("createdByAdminEmail")]
         public string? CreatedByAdminEmailCamel { get; set; }
 
@@ -159,7 +158,7 @@ public class AuctionsController : ControllerBase
     }
 
     // --------------------------------------------------
-    // POST: /api/auctions  (matches AdminSetup payload)
+    // POST: /api/auctions
     // --------------------------------------------------
     [HttpPost("api/auctions")]
     public async Task<IActionResult> CreateAuction([FromBody] CreateAuctionDto dto)
@@ -190,18 +189,28 @@ public class AuctionsController : ControllerBase
 
         // Choose best available admin email value (your UI sends multiple)
         var createdByEmail =
-            (dto.CreatedByAdminEmail ?? dto.CreatedByAdminEmailCamel ?? dto.CreatedByEmail ?? "").Trim().ToLowerInvariant();
+            (dto.CreatedByAdminEmail ?? dto.CreatedByAdminEmailCamel ?? dto.CreatedByEmail ?? "")
+            .Trim()
+            .ToLowerInvariant();
 
         if (string.IsNullOrWhiteSpace(createdByEmail))
             return BadRequest("created_by_email (or created_by_admin_email) is required");
+
+        // CreatedByCompany is required in AuctionEntity; ensure non-empty.
+        var createdByCompany = (dto.CreatedByCompany ?? "").Trim();
+        if (string.IsNullOrWhiteSpace(createdByCompany))
+            createdByCompany = createdByEmail;
+
+        var status = (dto.Status ?? "").Trim();
+        if (string.IsNullOrWhiteSpace(status))
+            status = "active";
 
         var auction = new AuctionEntity
         {
             Id = Guid.NewGuid(),
 
-            // Program.cs seed shows AdminId is a Guid; UI sends email. Use a new Guid for now.
-            // (If you later add an Admins table, map it properly.)
-            AdminId = Guid.NewGuid(), // aligns with seed pattern 
+            // If/when you map Admins table, replace this with a real AdminId
+            AdminId = Guid.NewGuid(),
 
             Title = dto.Title.Trim(),
             Description = dto.Description ?? "",
@@ -211,12 +220,14 @@ public class AuctionsController : ControllerBase
             DeliveryLocation = dto.DeliveryLocation.Trim(),
             StartsAt = startsAt,
             EndsAt = endsAt,
-            Status = string.IsNullOrWhiteSpace(dto.Status) ? "active" : dto.Status.Trim(),
+            Status = status,
             CreatedAt = DateTimeOffset.UtcNow,
             CreatedByEmail = createdByEmail,
-            CreatedByCompany = (dto.CreatedByCompany ?? "").Trim(),
+            CreatedByCompany = createdByCompany,
             Notes = dto.Notes ?? "",
-            WinnerVendorEmail = string.IsNullOrWhiteSpace(dto.WinnerVendorEmail) ? null : dto.WinnerVendorEmail.Trim().ToLowerInvariant()
+            WinnerVendorEmail = string.IsNullOrWhiteSpace(dto.WinnerVendorEmail)
+                ? null
+                : dto.WinnerVendorEmail.Trim().ToLowerInvariant()
         };
 
         _db.Auctions.Add(auction);
@@ -244,10 +255,9 @@ public class AuctionsController : ControllerBase
 
     // --------------------------------------------------
     // PATCH: /api/auctions/{id}
-    // Used by "Select Winner" in AdminDashboard
     // --------------------------------------------------
     [HttpPatch("api/auctions/{auctionId}")]
-    public async Task<IActionResult> UpdateAuction(string auctionId, [FromBody] Dictionary<string, object> patch)
+    public async Task<IActionResult> UpdateAuction(string auctionId, [FromBody] Dictionary<string, object>? patch)
     {
         if (!Guid.TryParse(auctionId, out var aid))
             return BadRequest("Invalid auctionId");
@@ -260,7 +270,11 @@ public class AuctionsController : ControllerBase
             return BadRequest("Patch body is required");
 
         if (patch.TryGetValue("status", out var statusObj))
-            auction.Status = statusObj?.ToString();
+        {
+            var s = statusObj?.ToString()?.Trim();
+            if (!string.IsNullOrWhiteSpace(s))
+                auction.Status = s;
+        }
 
         if (patch.TryGetValue("winner_vendor_email", out var winnerObj))
         {

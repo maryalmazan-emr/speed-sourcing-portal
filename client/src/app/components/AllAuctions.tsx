@@ -1,4 +1,4 @@
-// File: src/app/components/AllAuctions.tsx
+// File: client/src/app/components/AllAuctions.tsx
 
 "use client";
 
@@ -7,18 +7,20 @@ import type { MouseEvent } from "react";
 
 import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/app/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/app/components/ui/card";
 import { Badge } from "@/app/components/ui/badge";
 import { Crown, Search, Trash2 } from "lucide-react";
-import { apiGetAuctions } from "@/lib/api"; // ✅ FIXED IMPORT
+import { apiGetAuctions } from "@/lib/api";
 import { hasGlobalAccess, canDelete, getRoleName } from "@/lib/adminAuth";
 import { toast } from "sonner";
 
-type UserRole =
-  | "product_owner"
-  | "global_admin"
-  | "internal_user"
-  | "external_guest";
+type UserRole = "product_owner" | "global_admin" | "internal_user" | "external_guest";
 
 type AuctionLike = {
   id: string;
@@ -40,11 +42,7 @@ interface AllAuctionsProps {
   userRole: UserRole;
 }
 
-export function AllAuctions({
-  onSelectAuction,
-  adminEmail,
-  userRole,
-}: AllAuctionsProps) {
+export function AllAuctions({ onSelectAuction, adminEmail, userRole }: AllAuctionsProps) {
   const hasGlobalView = hasGlobalAccess(userRole);
   const canDeleteAuctions = canDelete(userRole);
 
@@ -64,7 +62,7 @@ export function AllAuctions({
       const allAuctions = (await apiGetAuctions()) as AuctionLike[];
 
       const visibleAuctions = allAuctions.filter(
-        auction => hasGlobalView || auction.created_by_email === adminEmail
+        (auction) => hasGlobalView || auction.created_by_email === adminEmail
       );
 
       setAuctions(visibleAuctions);
@@ -76,7 +74,7 @@ export function AllAuctions({
     }
   };
 
-  const handleDeleteAuction = (auctionTitle: string, e: MouseEvent): void => {
+  const handleDeleteAuction = (auctionTitle: string, e: MouseEvent<HTMLButtonElement>): void => {
     e.stopPropagation();
 
     if (!canDeleteAuctions) {
@@ -90,9 +88,7 @@ export function AllAuctions({
 
     if (!confirmed) return;
 
-    toast.info(
-      "Deletion is disabled. All auctions are maintained for audit trail compliance."
-    );
+    toast.info("Deletion is disabled. All auctions are maintained for audit trail compliance.");
   };
 
   const getShortId = (uuid: string): string => uuid.substring(0, 8).toUpperCase();
@@ -118,7 +114,7 @@ export function AllAuctions({
   };
 
   const filteredAuctions = useMemo(() => {
-    return auctions.filter(auction => {
+    return auctions.filter((auction) => {
       const now = new Date();
 
       if (filter === "awarded" && !auction.winner_vendor_email) return false;
@@ -176,14 +172,14 @@ export function AllAuctions({
           <Input
             placeholder="Search by ID, name, description, site, requestor..."
             value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
+            onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-10"
           />
         </div>
       </div>
 
       <div className="flex gap-2 mb-6">
-        {(["all", "active", "scheduled", "awarded"] as const).map(f => (
+        {(["all", "active", "scheduled", "awarded"] as const).map((f) => (
           <Button
             key={f}
             variant={filter === f ? "default" : "outline"}
@@ -198,13 +194,11 @@ export function AllAuctions({
 
       {filteredAuctions.length === 0 ? (
         <Card>
-          <CardContent className="py-12 text-center text-gray-500">
-            No auctions found
-          </CardContent>
+          <CardContent className="py-12 text-center text-gray-500">No auctions found</CardContent>
         </Card>
       ) : (
         <div className="grid gap-4">
-          {filteredAuctions.map(auction => (
+          {filteredAuctions.map((auction) => (
             <Card
               key={auction.id}
               className="cursor-pointer hover:shadow-lg transition-shadow"
@@ -236,7 +230,7 @@ export function AllAuctions({
                         variant="outline"
                         size="sm"
                         className="text-red-600"
-                        onClick={e => handleDeleteAuction(auction.title ?? auction.id, e)}
+                        onClick={(e) => handleDeleteAuction(auction.title ?? auction.id, e)}
                         type="button"
                       >
                         <Trash2 className="h-4 w-4" />
@@ -257,21 +251,17 @@ export function AllAuctions({
 
                   <div>
                     <span className="text-gray-500">Starts</span>
-                    <div className="font-medium">
-                      {new Date(auction.starts_at).toLocaleDateString()}
-                    </div>
+                    <div className="font-medium">{new Date(auction.starts_at).toLocaleDateString()}</div>
                   </div>
 
                   <div>
                     <span className="text-gray-500">Ends</span>
-                    <div className="font-medium">
-                      {new Date(auction.ends_at).toLocaleDateString()}
-                    </div>
+                    <div className="font-medium">{new Date(auction.ends_at).toLocaleDateString()}</div>
                   </div>
 
                   {auction.product_details && (
                     <div>
-                      <span className="text-gray-500">Part Numbers &amp; Qty</span>
+                      <span className="text-gray-500">Part Numbers & Qty</span>
                       <div className="font-medium">{auction.product_details}</div>
                     </div>
                   )}
@@ -294,3 +284,4 @@ export function AllAuctions({
     </div>
   );
 }
+``

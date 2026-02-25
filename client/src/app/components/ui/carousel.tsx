@@ -1,9 +1,7 @@
 "use client";
 
 import * as React from "react";
-import useEmblaCarousel, {
-  type UseEmblaCarouselType,
-} from "embla-carousel-react";
+import useEmblaCarousel, { type UseEmblaCarouselType } from "embla-carousel-react";
 import { ArrowLeft, ArrowRight } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -34,11 +32,7 @@ const CarouselContext = React.createContext<CarouselContextProps | null>(null);
 
 function useCarousel() {
   const context = React.useContext(CarouselContext);
-
-  if (!context) {
-    throw new Error("useCarousel must be used within a <Carousel />");
-  }
-
+  if (!context) throw new Error("useCarousel must be used within a <Carousel />");
   return context;
 }
 
@@ -52,10 +46,7 @@ function Carousel({
   ...props
 }: React.ComponentProps<"div"> & CarouselProps) {
   const [carouselRef, api] = useEmblaCarousel(
-    {
-      ...opts,
-      axis: orientation === "horizontal" ? "x" : "y",
-    },
+    { ...opts, axis: orientation === "horizontal" ? "x" : "y" },
     plugins
   );
 
@@ -96,11 +87,9 @@ function Carousel({
 
   React.useEffect(() => {
     if (!api) return;
-
     onSelect(api);
     api.on("reInit", onSelect);
     api.on("select", onSelect);
-
     return () => {
       api?.off("select", onSelect);
       api?.off("reInit", onSelect);
@@ -114,8 +103,7 @@ function Carousel({
         api,
         opts,
         plugins,
-        orientation:
-          orientation || (opts?.axis === "y" ? "vertical" : "horizontal"),
+        orientation: orientation || (opts?.axis === "y" ? "vertical" : "horizontal"),
         scrollPrev,
         scrollNext,
         canScrollPrev,
@@ -123,11 +111,11 @@ function Carousel({
       }}
     >
       <div
-        onKeyDownCapture={handleKeyDown}
-        className={cn("relative", className)}
+        data-slot="carousel"
         role="region"
         aria-roledescription="carousel"
-        data-slot="carousel"
+        onKeyDownCapture={handleKeyDown}
+        className={cn("relative", className)}
         {...props}
       >
         {children}
@@ -136,41 +124,27 @@ function Carousel({
   );
 }
 
-function CarouselContent({
-  className,
-  ...props
-}: React.ComponentProps<"div">) {
+function CarouselContent({ className, ...props }: React.ComponentProps<"div">) {
   const { carouselRef, orientation } = useCarousel();
 
   return (
-    <div
-      ref={carouselRef}
-      className="overflow-hidden"
-      data-slot="carousel-content"
-    >
+    <div ref={carouselRef} className="overflow-hidden" data-slot="carousel-content">
       <div
-        className={cn(
-          "flex",
-          orientation === "horizontal" ? "-ml-4" : "-mt-4 flex-col",
-          className
-        )}
+        className={cn("flex", orientation === "horizontal" ? "-ml-4" : "-mt-4 flex-col", className)}
         {...props}
       />
     </div>
   );
 }
 
-function CarouselItem({
-  className,
-  ...props
-}: React.ComponentProps<"div">) {
+function CarouselItem({ className, ...props }: React.ComponentProps<"div">) {
   const { orientation } = useCarousel();
 
   return (
     <div
+      data-slot="carousel-item"
       role="group"
       aria-roledescription="slide"
-      data-slot="carousel-item"
       className={cn(
         "min-w-0 shrink-0 grow-0 basis-full",
         orientation === "horizontal" ? "pl-4" : "pt-4",

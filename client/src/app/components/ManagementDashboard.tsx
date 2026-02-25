@@ -1,4 +1,4 @@
-// File: src/app/components/ManagementDashboard.tsx
+// File: client/src/app/components/ManagementDashboard.tsx
 
 "use client";
 
@@ -31,14 +31,17 @@ import { Search, Copy, AlertCircle, RefreshCw, Users } from "lucide-react";
 import { apiGetAuctions, apiGetInvites } from "@/lib/api";
 import { getRoleName } from "@/lib/adminAuth";
 import { toast } from "sonner";
-import { useRealTimeData, LastUpdateIndicator } from "@/lib/useRealTimeData";
+import { LastUpdateIndicator, useRealTimeData } from "@/lib/useRealTimeData";
 
 interface ManagementDashboardProps {
   userRole: "product_owner" | "global_admin" | "internal_user" | "external_guest";
   onSelectAuction: (auction: any) => void;
 }
 
-export function ManagementDashboard({ userRole, onSelectAuction }: ManagementDashboardProps) {
+export function ManagementDashboard({
+  userRole,
+  onSelectAuction,
+}: ManagementDashboardProps) {
   const [searchQuery, setSearchQuery] = useState("");
 
   // SECURITY
@@ -62,8 +65,8 @@ export function ManagementDashboard({ userRole, onSelectAuction }: ManagementDas
 
   /* ==================== AUCTIONS ==================== */
   const fetchAuctions = useCallback(async () => {
-    const auctions = await apiGetAuctions();
-    return Array.isArray(auctions) ? auctions : [];
+    const data = await apiGetAuctions();
+    return Array.isArray(data) ? data : [];
   }, []);
 
   const {
@@ -79,11 +82,12 @@ export function ManagementDashboard({ userRole, onSelectAuction }: ManagementDas
     enableStorageWatch: true,
   });
 
-  const auctions = auctionsData ?? [];
+  // ✅ FIX: stabilize auctions reference (prevents exhaustive-deps warnings)
+  const auctions = useMemo(() => auctionsData ?? [], [auctionsData]);
 
   /* ==================== INVITES (PER AUCTION) ==================== */
   const fetchAllInvites = useCallback(async () => {
-    if (!auctions.length) return [];
+    if (auctions.length === 0) return [];
 
     const results = await Promise.all(
       auctions.map(async (auction: any) => {
@@ -112,22 +116,26 @@ export function ManagementDashboard({ userRole, onSelectAuction }: ManagementDas
     enableStorageWatch: true,
   });
 
-  const invites = invitesData ?? [];
+  // ✅ FIX: stabilize invites reference (prevents exhaustive-deps warnings)
+  const invites = useMemo(() => invitesData ?? [], [invitesData]);
+
   const loading = auctionsLoading || invitesLoading;
 
   /* ==================== FILTERING ==================== */
   const filteredAuctions = useMemo(() => {
     if (!searchQuery.trim()) return auctions;
+
     const q = searchQuery.toLowerCase();
     return auctions.filter((a: any) =>
       [a.title, a.description, a.requestor, a.id]
         .filter(Boolean)
-        .some((v: string) => v.toLowerCase().includes(q))
+        .some((v: string) => String(v).toLowerCase().includes(q))
     );
   }, [auctions, searchQuery]);
 
   const filteredInvites = useMemo(() => {
     if (!searchQuery.trim()) return invites;
+
     const q = searchQuery.toLowerCase();
     return invites.filter((i: any) =>
       [i.vendor_email, i.invite_token, i.auction_title]
@@ -145,7 +153,9 @@ export function ManagementDashboard({ userRole, onSelectAuction }: ManagementDas
   const copyInvite = async (invite: any) => {
     const token = invite?.invite_token ?? "";
     const email = invite?.vendor_email ?? "";
-    const url = `${window.location.origin}/?invite=${encodeURIComponent(token)}&email=${encodeURIComponent(email)}`;
+    const url = `${window.location.origin}/?invite=${encodeURIComponent(
+      token
+    )}&email=${encodeURIComponent(email)}`;
 
     await navigator.clipboard.writeText(
       `You're invited to participate in "${invite.auction_title}"
@@ -164,7 +174,9 @@ Invite Code: ${token}`
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="text-xl font-semibold">Loading management dashboard…</div>
+        <div className="text-xl font-semibold">
+          Loading management dashboard…
+        </div>
       </div>
     );
   }
@@ -175,12 +187,19 @@ Invite Code: ${token}`
       <div className="mb-8 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <h1 className="text-3xl font-bold">Management Dashboard</h1>
-          <Badge className="bg-[#00573d] text-white">{getRoleName(userRole)}</Badge>
+          <Badge className="bg-[#00573d] text-white">
+            {getRoleName(userRole)}
+          </Badge>
         </div>
 
         <div className="flex items-center gap-4">
           <LastUpdateIndicator lastUpdate={auctionsLastUpdate} />
-          <Button size="sm" variant="outline" onClick={refreshAuctions}>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => void refreshAuctions()}
+            type="button"
+          >
             <RefreshCw className="h-4 w-4 mr-1" />
             Refresh
           </Button>
@@ -200,8 +219,12 @@ Invite Code: ${token}`
 
       <Tabs defaultValue="auctions">
         <TabsList className="grid grid-cols-2 max-w-md">
-          <TabsTrigger value="auctions">Auctions ({filteredAuctions.length})</TabsTrigger>
-          <TabsTrigger value="invites">Invites ({filteredInvites.length})</TabsTrigger>
+          <TabsTrigger value="auctions">
+            Auctions ({filteredAuctions.length})
+          </TabsTrigger>
+          <TabsTrigger value="invites">
+            Invites ({filteredInvites.length})
+          </TabsTrigger>
         </TabsList>
 
         {/* Auctions */}
@@ -223,7 +246,9 @@ Invite Code: ${token}`
                 >
                   <CardHeader>
                     <CardTitle>{auction.title}</CardTitle>
-                    <CardDescription>ID: {getShortId(auction.id)}</CardDescription>
+                    <CardDescription>
+                      ID: {getShortId(auction.id)}
+                    </CardDescription>
                   </CardHeader>
                 </Card>
               ))}
@@ -236,7 +261,9 @@ Invite Code: ${token}`
           <Card>
             <CardHeader>
               <CardTitle>External Guest Invites</CardTitle>
-              <CardDescription>All vendor access codes across all auctions</CardDescription>
+              <CardDescription>
+                All vendor access codes across all auctions
+              </CardDescription>
             </CardHeader>
             <CardContent>
               {filteredInvites.length === 0 ? (
@@ -259,7 +286,9 @@ Invite Code: ${token}`
                     {filteredInvites.map((invite: any) => (
                       <TableRow key={invite.id}>
                         <TableCell>{invite.vendor_email}</TableCell>
-                        <TableCell className="font-mono">{invite.invite_token}</TableCell>
+                        <TableCell className="font-mono">
+                          {invite.invite_token}
+                        </TableCell>
                         <TableCell>{invite.auction_title}</TableCell>
                         <TableCell>
                           <Badge>{invite.status}</Badge>
@@ -268,12 +297,17 @@ Invite Code: ${token}`
                           <Button
                             size="sm"
                             variant="outline"
-                            onClick={() => copyCode(invite.invite_token)}
+                            onClick={() => void copyCode(invite.invite_token)}
+                            type="button"
                           >
                             <Copy className="h-3 w-3 mr-1" />
                             Code
                           </Button>
-                          <Button size="sm" onClick={() => copyInvite(invite)}>
+                          <Button
+                            size="sm"
+                            onClick={() => void copyInvite(invite)}
+                            type="button"
+                          >
                             <Copy className="h-3 w-3 mr-1" />
                             Full Invite
                           </Button>

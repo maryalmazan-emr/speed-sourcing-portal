@@ -1,3 +1,4 @@
+// File: client/tsconfig.app.json
 {
   "compilerOptions": {
     "baseUrl": ".",
@@ -7,7 +8,9 @@
     "useDefineForClassFields": true,
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "module": "ESNext",
-    "types": ["vite/client"],
+
+    "types": ["vite/client", "react", "react-dom"],
+
     "skipLibCheck": true,
 
     "paths": {

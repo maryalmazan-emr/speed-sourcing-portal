@@ -1,4 +1,4 @@
-// File: src/app/components/DataProtectionBanner.tsx
+// File: client/src/app/components/DataProtectionBanner.tsx
 
 "use client";
 
@@ -9,10 +9,7 @@ interface DataProtectionBannerProps {
   message?: string;
 }
 
-export function DataProtectionBanner({
-  variant = "info",
-  message,
-}: DataProtectionBannerProps) {
+export function DataProtectionBanner({ variant = "info", message }: DataProtectionBannerProps) {
   const variants = {
     warning: {
       bg: "bg-yellow-50 dark:bg-yellow-950 border-yellow-500",
@@ -32,7 +29,7 @@ export function DataProtectionBanner({
       iconColor: "text-green-600",
       textColor: "text-green-800 dark:text-green-200",
     },
-  };
+  } as const;
 
   const config = variants[variant];
   const Icon = config.icon;
@@ -45,12 +42,8 @@ export function DataProtectionBanner({
   return (
     <div className={`border-l-4 p-4 ${config.bg}`}>
       <div className="flex items-start gap-3">
-        <Icon
-          className={`h-5 w-5 mt-0.5 flex-shrink-0 ${config.iconColor}`}
-        />
-        <p className={`text-sm ${config.textColor}`}>
-          {message ?? defaultMessage}
-        </p>
+        <Icon className={`h-5 w-5 mt-0.5 shrink-0 ${config.iconColor}`} />
+        <p className={`text-sm ${config.textColor}`}>{message ?? defaultMessage}</p>
       </div>
     </div>
   );

@@ -1,11 +1,10 @@
+// File: client/src/app/components/ui/skeleton.tsx
 "use client";
 
+import type { ComponentProps } from "react";
 import { cn } from "@/lib/utils";
 
-function Skeleton({
-  className,
-  ...props
-}: React.ComponentProps<"div">) {
+function Skeleton({ className, ...props }: ComponentProps<"div">) {
   return (
     <div
       data-slot="skeleton"

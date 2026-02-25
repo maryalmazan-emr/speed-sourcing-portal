@@ -1,6 +1,8 @@
+// File: client/src/app/components/VendorDashboard.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import type { FormEvent } from "react";
 import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
 import { Label } from "@/app/components/ui/label";
@@ -15,10 +17,7 @@ import { Badge } from "@/app/components/ui/badge";
 import { Trophy, TrendingUp, Award } from "lucide-react";
 import { toast } from "sonner";
 
-import {
-  apiGetVendorRankInfo,
-  apiSubmitBid,
-} from "@/lib/api";
+import { apiGetVendorRankInfo, apiSubmitBid } from "@/lib/api";
 
 interface VendorDashboardProps {
   auction: any;
@@ -49,11 +48,7 @@ const formatMoney = (n: number) =>
     maximumFractionDigits: 0,
   }).format(n);
 
-export function VendorDashboard({
-  auction,
-  session,
-  onLogout,
-}: VendorDashboardProps) {
+export function VendorDashboard({ auction, session, onLogout }: VendorDashboardProps) {
   const [deliveryTime, setDeliveryTime] = useState("");
   const [price, setPrice] = useState("");
   const [companyName, setCompanyName] = useState("");
@@ -68,8 +63,11 @@ export function VendorDashboard({
   useEffect(() => {
     if (!auction?.id || !session?.vendor_email) return;
 
-    loadStatus();
-    const interval = setInterval(loadStatus, 5000);
+    void loadStatus();
+    const interval = setInterval(() => {
+      void loadStatus();
+    }, 5000);
+
     return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [auction?.id, session?.vendor_email]);
@@ -77,10 +75,7 @@ export function VendorDashboard({
   const loadStatus = async () => {
     try {
       setLoading(true);
-      const data = await apiGetVendorRankInfo(
-        auction.id,
-        session.vendor_email
-      );
+      const data = await apiGetVendorRankInfo(auction.id, session.vendor_email);
 
       setStatus(data ?? null);
 
@@ -119,7 +114,7 @@ export function VendorDashboard({
     let leadingDelivery = status?.leading_delivery_time_days ?? null;
     let leadingPrice = status?.leading_cost_per_unit ?? null;
 
-    // ✅ Defensive fix: if only 1 bid, leader MUST be vendor bid
+    // Defensive fix: if only 1 bid, leader MUST be vendor bid
     if (total === 1 && status?.vendor_bid) {
       leadingDelivery = status.vendor_bid.delivery_time_days ?? leadingDelivery;
       leadingPrice = status.vendor_bid.cost_per_unit ?? leadingPrice;
@@ -135,7 +130,7 @@ export function VendorDashboard({
   }, [status]);
 
   // ------------------ Submit bid ------------------
-  const handleSubmitBid = async (e: React.FormEvent) => {
+  const handleSubmitBid = async (e: FormEvent) => {
     e.preventDefault();
 
     const d = Number(deliveryTime);
@@ -184,10 +179,7 @@ export function VendorDashboard({
   const isAuctionActive = () => {
     if (auction.status !== "active") return false;
     const now = new Date();
-    return (
-      now >= new Date(auction.starts_at) &&
-      now < new Date(auction.ends_at)
-    );
+    return now >= new Date(auction.starts_at) && now < new Date(auction.ends_at);
   };
 
   const getRankBadge = () => {
@@ -220,9 +212,7 @@ export function VendorDashboard({
       <div className="flex justify-between items-center mb-6">
         <div>
           <h1 className="text-2xl font-bold">Vendor Dashboard</h1>
-          <p className="text-sm text-gray-600">
-            Logged in as {session.vendor_email}
-          </p>
+          <p className="text-sm text-gray-600">Logged in as {session.vendor_email}</p>
         </div>
         <Button variant="outline" onClick={onLogout}>
           Logout
@@ -237,12 +227,8 @@ export function VendorDashboard({
           </CardHeader>
           <CardContent className="flex justify-between items-center">
             <div>
-              <div className="text-4xl font-bold text-blue-600">
-                #{normalized.rank}
-              </div>
-              <div className="text-sm text-gray-600">
-                out of {normalized.totalBids} bids
-              </div>
+              <div className="text-4xl font-bold text-blue-600">#{normalized.rank}</div>
+              <div className="text-sm text-gray-600">out of {normalized.totalBids} bids</div>
             </div>
             {getRankBadge()}
           </CardContent>
@@ -256,26 +242,20 @@ export function VendorDashboard({
         </CardHeader>
         <CardContent className="grid grid-cols-3 gap-4">
           <div className="text-center bg-gray-50 p-4 rounded">
-            <div className="text-2xl font-bold text-blue-600">
-              {normalized.totalBids}
-            </div>
+            <div className="text-2xl font-bold text-blue-600">{normalized.totalBids}</div>
             <div className="text-sm text-gray-600">Total Bids</div>
           </div>
 
           <div className="text-center bg-gray-50 p-4 rounded">
             <div className="text-2xl font-bold text-green-600">
-              {normalized.leadingDelivery != null
-                ? `${normalized.leadingDelivery} days`
-                : "N/A"}
+              {normalized.leadingDelivery != null ? `${normalized.leadingDelivery} days` : "N/A"}
             </div>
             <div className="text-sm text-gray-600">Leading Delivery</div>
           </div>
 
           <div className="text-center bg-gray-50 p-4 rounded">
             <div className="text-2xl font-bold text-purple-600">
-              {normalized.leadingPrice != null
-                ? formatMoney(normalized.leadingPrice)
-                : "N/A"}
+              {normalized.leadingPrice != null ? formatMoney(normalized.leadingPrice) : "N/A"}
             </div>
             <div className="text-sm text-gray-600">Leading Price</div>
           </div>
@@ -285,9 +265,7 @@ export function VendorDashboard({
       {/* Bid form */}
       <Card>
         <CardHeader>
-          <CardTitle>
-            {normalized.hasBid ? "Update Your Bid" : "Submit Your Bid"}
-          </CardTitle>
+          <CardTitle>{normalized.hasBid ? "Update Your Bid" : "Submit Your Bid"}</CardTitle>
           <CardDescription>
             {isAuctionActive()
               ? "You may update your bid while the auction is active"
@@ -323,37 +301,22 @@ export function VendorDashboard({
             {showCompanyForm && (
               <>
                 <Label>Company Name</Label>
-                <Input
-                  value={companyName}
-                  onChange={(e) => setCompanyName(e.target.value)}
-                  required
-                />
+                <Input value={companyName} onChange={(e) => setCompanyName(e.target.value)} required />
+
                 <Label>Contact Name</Label>
-                <Input
-                  value={contactName}
-                  onChange={(e) => setContactName(e.target.value)}
-                  required
-                />
+                <Input value={contactName} onChange={(e) => setContactName(e.target.value)} required />
+
                 <Label>Contact Phone</Label>
-                <Input
-                  value={contactPhone}
-                  onChange={(e) => setContactPhone(e.target.value)}
-                />
+                <Input value={contactPhone} onChange={(e) => setContactPhone(e.target.value)} />
               </>
             )}
 
-            <Button
-              type="submit"
-              className="w-full"
-              disabled={!isAuctionActive() || submitting}
-            >
+            <Button type="submit" className="w-full" disabled={!isAuctionActive() || submitting}>
               {submitting ? "Submitting..." : "Submit Bid"}
             </Button>
 
             {loading && (
-              <p className="text-xs text-gray-500 text-center">
-                Updating leaderboard…
-              </p>
+              <p className="text-xs text-gray-500 text-center">Updating leaderboard…</p>
             )}
           </form>
         </CardContent>

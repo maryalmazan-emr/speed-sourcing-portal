@@ -1,4 +1,4 @@
-// File: src/app/components/AdminSetup.tsx
+// File: client/src/app/components/AdminSetup.tsx
 "use client";
 
 import { useState } from "react";
@@ -147,8 +147,16 @@ export function AdminSetup({ onComplete, adminSession }: AdminSetupProps) {
         return;
       }
 
+      // Optional: de-dupe emails while preserving order
+      const seen = new Set<string>();
+      const deduped = emails.filter((e) => {
+        if (seen.has(e)) return false;
+        seen.add(e);
+        return true;
+      });
+
       setInvites(
-        emails.map((email) => ({
+        deduped.map((email) => ({
           email,
           company_name: "External Guest",
           status: "pending",
@@ -235,11 +243,11 @@ export function AdminSetup({ onComplete, adminSession }: AdminSetupProps) {
         ends_at: endIso,
         winner_vendor_email: null,
 
-        // ✅ primary fields (ASP.NET uses these)
+        // primary fields (ASP.NET uses these)
         created_by_email: adminSession.email,
         created_by_company: adminSession.name,
 
-        // ✅ compatibility fields (harmless to ASP.NET, prevents “wrong backend” 400s)
+        // compatibility fields (harmless to ASP.NET, prevents “wrong backend” 400s)
         created_by_admin_email: adminSession.email,
         createdByAdminEmail: adminSession.email,
 
@@ -494,7 +502,7 @@ export function AdminSetup({ onComplete, adminSession }: AdminSetupProps) {
               <Button
                 size="sm"
                 variant="outline"
-                onClick={copyVendorList}
+                onClick={() => void copyVendorList()}
                 type="button"
                 disabled={invites.length === 0}
               >
@@ -525,7 +533,12 @@ export function AdminSetup({ onComplete, adminSession }: AdminSetupProps) {
       <div className="flex items-center justify-between mt-6">
         <div>
           {step > 1 && (
-            <Button variant="outline" onClick={handleBack} disabled={loading} type="button">
+            <Button
+              variant="outline"
+              onClick={handleBack}
+              disabled={loading}
+              type="button"
+            >
               <ArrowLeft className="h-4 w-4 mr-2" />
               Back
             </Button>
@@ -533,7 +546,11 @@ export function AdminSetup({ onComplete, adminSession }: AdminSetupProps) {
         </div>
 
         <div className="flex gap-2">
-          <Button onClick={step === 3 ? launchAuction : handleNext} disabled={loading} type="button">
+          <Button
+            onClick={() => void (step === 3 ? launchAuction() : Promise.resolve(handleNext()))}
+            disabled={loading}
+            type="button"
+          >
             {loading ? "Processing..." : step === 3 ? "Submit & Launch" : "Next"}
             {step < 3 && <ArrowRight className="h-4 w-4 ml-2" />}
           </Button>

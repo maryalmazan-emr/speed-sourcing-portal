@@ -1,4 +1,4 @@
-// File: src/app/components/AccessDenied.tsx
+// File: client/src/app/components/AccessDenied.tsx
 
 "use client";
 

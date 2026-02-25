@@ -1,4 +1,4 @@
-// File: src/app/components/Header.tsx
+// File: client/src/app/components/Header.tsx
 
 "use client";
 
@@ -35,11 +35,7 @@ interface HeaderProps {
   onCreateAuction?: () => void;
   onAdminLogout?: () => void;
   currentUser?: string;
-  adminRole?:
-    | "product_owner"
-    | "global_admin"
-    | "internal_user"
-    | "external_guest";
+  adminRole?: "product_owner" | "global_admin" | "internal_user" | "external_guest";
   vendorEmail?: string;
 }
 
@@ -57,7 +53,6 @@ export function Header({
   const [timeLeft, setTimeLeft] = useState("");
   const [isWarning, setIsWarning] = useState(false);
 
-  // ---- Active view (no props) ----
   const [activeView, setActiveView] = useState<View | null>(() => getViewFromHash());
 
   useEffect(() => {
@@ -128,10 +123,7 @@ export function Header({
   }, [auction]);
 
   const itemClass = (view: View) =>
-    cn(
-      "cursor-pointer",
-      activeView === view && "bg-gray-100 dark:bg-gray-700 font-medium"
-    );
+    cn("cursor-pointer", activeView === view && "bg-gray-100 dark:bg-gray-700 font-medium");
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-white dark:bg-gray-800 shadow-sm">
@@ -180,14 +172,8 @@ export function Header({
         <div className="flex items-center gap-2">
           <ThemeToggle />
 
-          <NotificationBell
-            vendorEmail={vendorEmail}
-            adminEmail={currentUser}
-            role={role}
-            adminRole={adminRole}
-          />
+          <NotificationBell vendorEmail={vendorEmail} adminEmail={currentUser} role={role} adminRole={adminRole} />
 
-          {/* MENU */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="sm" type="button">
@@ -197,7 +183,6 @@ export function Header({
             </DropdownMenuTrigger>
 
             <DropdownMenuContent align="end" className="w-56">
-              {/* Vendor menu */}
               {role === "vendor" && (
                 <>
                   <DropdownMenuItem
@@ -208,17 +193,13 @@ export function Header({
                     Auction
                   </DropdownMenuItem>
 
-                  <DropdownMenuItem
-                    className={itemClass("faq")}
-                    onClick={() => onNavigate("faq")}
-                  >
+                  <DropdownMenuItem className={itemClass("faq")} onClick={() => onNavigate("faq")}>
                     <HelpCircle className="h-4 w-4 mr-2" />
                     FAQ
                   </DropdownMenuItem>
                 </>
               )}
 
-              {/* Admin menu */}
               {role === "admin" && (
                 <>
                   <DropdownMenuItem
@@ -229,9 +210,7 @@ export function Header({
                   </DropdownMenuItem>
 
                   {perms.canCreateAuction && (
-                    <DropdownMenuItem onClick={() => onCreateAuction?.()}>
-                      🆕 Create New Auction
-                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => onCreateAuction?.()}>🆕 Create New Auction</DropdownMenuItem>
                   )}
 
                   <DropdownMenuSeparator />
@@ -255,10 +234,7 @@ export function Header({
                   )}
 
                   {perms.canAccessAccounts && (
-                    <DropdownMenuItem
-                      className={itemClass("accounts")}
-                      onClick={() => onNavigate("accounts")}
-                    >
+                    <DropdownMenuItem className={itemClass("accounts")} onClick={() => onNavigate("accounts")}>
                       👥 All Accounts
                     </DropdownMenuItem>
                   )}
@@ -274,10 +250,7 @@ export function Header({
 
                   <DropdownMenuSeparator />
 
-                  <DropdownMenuItem
-                    className={itemClass("faq")}
-                    onClick={() => onNavigate("faq")}
-                  >
+                  <DropdownMenuItem className={itemClass("faq")} onClick={() => onNavigate("faq")}>
                     <HelpCircle className="h-4 w-4 mr-2" />
                     FAQ
                   </DropdownMenuItem>
@@ -295,9 +268,7 @@ export function Header({
                   {onAdminLogout && (
                     <>
                       <DropdownMenuSeparator />
-                      <DropdownMenuItem onClick={onAdminLogout}>
-                        🚪 Logout
-                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={onAdminLogout}>🚪 Logout</DropdownMenuItem>
                     </>
                   )}
                 </>

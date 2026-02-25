@@ -1,4 +1,5 @@
-// File: src/app/components/AdminDashboard.tsx
+// File: client/src/app/components/AdminDashboard.tsx
+
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
@@ -35,11 +36,7 @@ import {
   TableRow,
 } from "@/app/components/ui/table";
 
-type AdminRole =
-  | "product_owner"
-  | "global_admin"
-  | "internal_user"
-  | "external_guest";
+type AdminRole = "product_owner" | "global_admin" | "internal_user" | "external_guest";
 
 type AuctionLike = {
   id: string;
@@ -56,11 +53,7 @@ interface AdminDashboardProps {
   adminEmail?: string;
 }
 
-export function AdminDashboard({
-  auction,
-  onRefresh,
-  adminRole,
-}: AdminDashboardProps) {
+export function AdminDashboard({ auction, onRefresh, adminRole }: AdminDashboardProps) {
   const [invites, setInvites] = useState<VendorInvite[]>([]);
   const [bids, setBids] = useState<Bid[]>([]);
   const [loading, setLoading] = useState(true);
@@ -87,10 +80,7 @@ export function AdminDashboard({
         if (a.cost_per_unit !== b.cost_per_unit) {
           return a.cost_per_unit - b.cost_per_unit;
         }
-        return (
-          new Date(a.submitted_at).getTime() -
-          new Date(b.submitted_at).getTime()
-        );
+        return new Date(a.submitted_at).getTime() - new Date(b.submitted_at).getTime();
       });
 
       setInvites((allInvites || []) as VendorInvite[]);
@@ -104,7 +94,7 @@ export function AdminDashboard({
   }, [auction?.id]);
 
   useEffect(() => {
-    loadData();
+    void loadData();
   }, [loadData]);
 
   const copyCode = useCallback(async (token: string) => {
@@ -118,7 +108,7 @@ export function AdminDashboard({
     else toast.error("Failed to copy");
   }, []);
 
-  // ✅ FIX: Real invite link includes token so vendors do NOT fall back to admin login
+  // Real invite link includes token so vendors do NOT fall back to admin login
   const copyInvite = useCallback(
     async (index: number) => {
       const invite = invites[index];
@@ -175,10 +165,13 @@ Emerson Procurement Team`;
     if (!selectedWinnerEmail) return;
 
     try {
-      await apiUpdateAuction(auction.id, {
-        status: "completed",
-        winner_vendor_email: selectedWinnerEmail,
-      } as any);
+      await apiUpdateAuction(
+        auction.id,
+        {
+          status: "completed",
+          winner_vendor_email: selectedWinnerEmail,
+        } as any
+      );
 
       toast.success("Winner selected and auction closed");
       setSelectedWinnerEmail(null);
@@ -282,7 +275,11 @@ Emerson Procurement Team`;
                         />
 
                         {index === 0 && auction.status === "active" && !auction.winner_vendor_email ? (
-                          <Button size="sm" onClick={() => handleSelectWinnerClick(bid.vendor_email)}>
+                          <Button
+                            size="sm"
+                            onClick={() => handleSelectWinnerClick(bid.vendor_email)}
+                            type="button"
+                          >
                             <Crown className="h-3 w-3 mr-1" />
                             Select Winner
                           </Button>
@@ -339,13 +336,14 @@ Emerson Procurement Team`;
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => copyCode((invite as any).invite_token)}
+                          onClick={() => void copyCode((invite as any).invite_token)}
+                          type="button"
                         >
                           <Copy className="h-3 w-3 mr-1" />
                           Code
                         </Button>
 
-                        <Button size="sm" onClick={() => copyInvite(index)}>
+                        <Button size="sm" onClick={() => void copyInvite(index)} type="button">
                           {copiedIndex === index ? (
                             <Check className="h-3 w-3 mr-1" />
                           ) : (

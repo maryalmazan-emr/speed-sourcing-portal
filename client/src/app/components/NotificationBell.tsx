@@ -1,5 +1,4 @@
-// File: src/app/components/NotificationBell.tsx
-
+// File: client/src/app/components/NotificationBell.tsx
 "use client";
 
 import { useEffect, useState } from "react";
@@ -80,19 +79,13 @@ export function NotificationBell(props: NotificationBellProps) {
   const getNotificationIcon = (type: Notification["type"]) => {
     switch (type) {
       case "rank_change":
-        return (
-          <TrendingUp className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-        );
+        return <TrendingUp className="h-4 w-4 text-blue-600 dark:text-blue-400" />;
       case "admin_message":
-        return (
-          <MessageSquare className="h-4 w-4 text-purple-600 dark:text-purple-400" />
-        );
+        return <MessageSquare className="h-4 w-4 text-purple-600 dark:text-purple-400" />;
       case "auction_start":
         return <Clock className="h-4 w-4 text-green-600 dark:text-green-400" />;
       case "auction_end":
-        return (
-          <CheckCircle className="h-4 w-4 text-gray-600 dark:text-gray-400" />
-        );
+        return <CheckCircle className="h-4 w-4 text-gray-600 dark:text-gray-400" />;
       default:
         return <Bell className="h-4 w-4 text-gray-600 dark:text-gray-400" />;
     }
@@ -102,14 +95,10 @@ export function NotificationBell(props: NotificationBellProps) {
     if (oldRank == null || newRank == null) return null;
 
     if (newRank < oldRank) {
-      return (
-        <TrendingUp className="h-4 w-4 text-green-600 dark:text-green-400" />
-      );
+      return <TrendingUp className="h-4 w-4 text-green-600 dark:text-green-400" />;
     }
     if (newRank > oldRank) {
-      return (
-        <TrendingDown className="h-4 w-4 text-red-600 dark:text-red-400" />
-      );
+      return <TrendingDown className="h-4 w-4 text-red-600 dark:text-red-400" />;
     }
     return null;
   };
@@ -152,14 +141,11 @@ export function NotificationBell(props: NotificationBellProps) {
 
       <DropdownMenuContent
         align="end"
-        className="w-96 p-0 max-h-[500px] overflow-hidden flex flex-col"
+        className="w-96 p-0 max-h-125 overflow-hidden flex flex-col"
       >
-        {/* Header */}
         <div className="p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
           <div className="flex items-center justify-between">
-            <h3 className="font-semibold text-gray-900 dark:text-white">
-              Notifications
-            </h3>
+            <h3 className="font-semibold text-gray-900 dark:text-white">Notifications</h3>
             {unreadCount > 0 && (
               <Button
                 variant="ghost"
@@ -174,14 +160,11 @@ export function NotificationBell(props: NotificationBellProps) {
           </div>
         </div>
 
-        {/* Notifications List */}
         <div className="overflow-y-auto flex-1">
           {notifications.length === 0 ? (
             <div className="p-8 text-center">
               <Bell className="h-12 w-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                No notifications yet
-              </p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">No notifications yet</p>
             </div>
           ) : (
             <div className="divide-y divide-gray-200 dark:divide-gray-700">
@@ -193,7 +176,7 @@ export function NotificationBell(props: NotificationBellProps) {
                   }`}
                 >
                   <div className="flex gap-3">
-                    <div className="flex-shrink-0 mt-1">
+                    <div className="shrink-0 mt-1">
                       {notif.type === "rank_change" &&
                       notif.old_rank != null &&
                       notif.new_rank != null

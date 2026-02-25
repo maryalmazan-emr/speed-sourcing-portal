@@ -1,5 +1,4 @@
-// File: src/app/components/TypedConfirmDialogue.tsx
-
+// File: client/src/app/components/TypedConfirmDialogue.tsx
 "use client";
 
 import { useState } from "react";
@@ -20,7 +19,7 @@ interface TypedConfirmDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 
-  // ✅ FIX: allow any return type (toast returns string|number, etc.)
+  // allow any return type (toast returns string|number, etc.)
   onConfirm: () => void | Promise<unknown>;
 
   title: string;
@@ -60,7 +59,7 @@ export function TypedConfirmDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-106.25">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             {variant === "destructive" && (
@@ -76,7 +75,9 @@ export function TypedConfirmDialog({
         <div className="py-4">
           <Label htmlFor="confirm-input" className="text-sm font-medium mb-2 block">
             Type{" "}
-            <span className="font-mono font-bold text-red-600">"{confirmText}"</span>{" "}
+            <span className="font-mono font-bold text-red-600">
+              &quot;{confirmText}&quot;
+            </span>{" "}
             to confirm
           </Label>
 
@@ -104,13 +105,11 @@ export function TypedConfirmDialog({
 
           {inputValue && !isValid && (
             <p className="text-xs text-red-600 mt-1">
-              Text does not match. Please type exactly: "{confirmText}"
+              Text does not match. Please type exactly: &quot;{confirmText}&quot;
             </p>
           )}
 
-          {isValid && (
-            <p className="text-xs text-green-600 mt-1">✓ Confirmed</p>
-          )}
+          {isValid && <p className="text-xs text-green-600 mt-1">✓ Confirmed</p>}
         </div>
 
         <DialogFooter className="gap-2">

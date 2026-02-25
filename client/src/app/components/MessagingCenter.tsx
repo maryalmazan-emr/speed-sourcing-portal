@@ -1,4 +1,4 @@
-// File: src/app/components/MessagingCenter.tsx
+// File: client/src/app/components/MessagingCenter.tsx
 
 "use client";
 
@@ -58,8 +58,7 @@ export function MessagingCenter({ onBack, adminRole }: MessagingCenterProps) {
   const roleConfig = {
     product_owner: {
       label: "Product Owner",
-      color:
-        "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200",
+      color: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200",
     },
     global_admin: {
       label: "Global Administrator",
@@ -67,8 +66,7 @@ export function MessagingCenter({ onBack, adminRole }: MessagingCenterProps) {
     },
     internal_user: {
       label: "Internal User",
-      color:
-        "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
+      color: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
     },
     external_guest: {
       label: "External Guest",
@@ -77,10 +75,7 @@ export function MessagingCenter({ onBack, adminRole }: MessagingCenterProps) {
   } as const;
 
   const getRoleBadge = (role: Account["role"]) => {
-    const config = roleConfig[role] ?? {
-      label: role,
-      color: "bg-gray-100 text-gray-800",
-    };
+    const config = roleConfig[role] ?? { label: role, color: "bg-gray-100 text-gray-800" };
 
     return (
       <span
@@ -148,16 +143,17 @@ export function MessagingCenter({ onBack, adminRole }: MessagingCenterProps) {
 
     setSending(true);
     try {
-      // Send to each selected user (synchronous loop keeps it predictable)
       for (const email of selectedUsers) {
-        addNotification({
-          vendor_email: email,
-          auction_id: "system", // system-wide message
-          type: "admin_message",
-          title: `📬 ${title}`,
-          message,
-          sender: "Emerson Procurement Team",
-        });
+        await Promise.resolve(
+          addNotification({
+            vendor_email: email,
+            auction_id: "system",
+            type: "admin_message",
+            title: `📬 ${title}`,
+            message,
+            sender: "Emerson Procurement Team",
+          })
+        );
       }
 
       toast.success(`Message sent to ${selectedUsers.size} recipient(s)`);
@@ -179,7 +175,6 @@ export function MessagingCenter({ onBack, adminRole }: MessagingCenterProps) {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header */}
         <div className="mb-8">
           <Button
             variant="ghost"
@@ -200,7 +195,6 @@ export function MessagingCenter({ onBack, adminRole }: MessagingCenterProps) {
                 <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
                   Messaging Center
                 </h1>
-                {/* ensures adminRole is used (and shows who is allowed here) */}
                 {getRoleBadge(adminRole)}
               </div>
               <p className="text-gray-600 dark:text-gray-400">
@@ -211,18 +205,14 @@ export function MessagingCenter({ onBack, adminRole }: MessagingCenterProps) {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Recipients Panel */}
           <div className="lg:col-span-2">
             <Card>
               <CardHeader>
                 <CardTitle>Select Recipients</CardTitle>
-                <CardDescription>
-                  Choose who should receive your message
-                </CardDescription>
+                <CardDescription>Choose who should receive your message</CardDescription>
               </CardHeader>
 
               <CardContent className="space-y-4">
-                {/* Quick Select Buttons */}
                 <div className="flex flex-wrap gap-2">
                   <Button
                     variant="outline"
@@ -276,7 +266,6 @@ export function MessagingCenter({ onBack, adminRole }: MessagingCenterProps) {
                   </Button>
                 </div>
 
-                {/* Search and Filter */}
                 <div className="flex gap-4">
                   <div className="flex-1">
                     <Input
@@ -300,14 +289,12 @@ export function MessagingCenter({ onBack, adminRole }: MessagingCenterProps) {
                   </select>
                 </div>
 
-                {/* Selected Count */}
                 <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
                   <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
                     {selectedCount} recipient{selectedCount !== 1 ? "s" : ""} selected
                   </p>
                 </div>
 
-                {/* User List */}
                 <div className="border border-gray-200 dark:border-gray-700 rounded-lg max-h-96 overflow-y-auto">
                   {filteredAccounts.length === 0 ? (
                     <div className="p-8 text-center text-gray-500 dark:text-gray-400">
@@ -349,7 +336,6 @@ export function MessagingCenter({ onBack, adminRole }: MessagingCenterProps) {
             </Card>
           </div>
 
-          {/* Message Composition Panel */}
           <div className="lg:col-span-1">
             <Card className="sticky top-4">
               <CardHeader>
@@ -382,13 +368,8 @@ export function MessagingCenter({ onBack, adminRole }: MessagingCenterProps) {
                 </div>
 
                 <Button
-                  onClick={handleSendMessage}
-                  disabled={
-                    sending ||
-                    selectedUsers.size === 0 ||
-                    !title.trim() ||
-                    !message.trim()
-                  }
+                  onClick={() => void handleSendMessage()}
+                  disabled={sending || selectedUsers.size === 0 || !title.trim() || !message.trim()}
                   className="w-full bg-blue-600 hover:bg-blue-700 text-white"
                   type="button"
                 >

@@ -1,4 +1,4 @@
-// File: src/app/components/AdminLogin.tsx
+// File: client/src/app/components/AdminLogin.tsx
 
 "use client";
 
@@ -16,12 +16,7 @@ import { DebugStorage } from "@/app/components/DebugStorage";
 import { toast } from "sonner";
 
 interface AdminLoginProps {
-  onLogin: (
-    email: string,
-    name: string,
-    password: string,
-    isNewAccount: boolean
-  ) => void;
+  onLogin: (email: string, name: string, password: string, isNewAccount: boolean) => void;
 }
 
 export function AdminLogin({ onLogin }: AdminLoginProps) {
@@ -29,8 +24,7 @@ export function AdminLogin({ onLogin }: AdminLoginProps) {
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [emailStatus, setEmailStatus] =
-    useState<"checking" | "found" | "new" | null>(null);
+  const [emailStatus, setEmailStatus] = useState<"checking" | "found" | "new" | null>(null);
   const [isEmailReadOnly, setIsEmailReadOnly] = useState(false);
   const [showDebug, setShowDebug] = useState(false);
 
@@ -84,11 +78,7 @@ export function AdminLogin({ onLogin }: AdminLoginProps) {
     }
   };
 
-  const handlePresetLogin = (
-    presetEmail: string,
-    presetPassword: string,
-    presetName: string
-  ): void => {
+  const handlePresetLogin = (presetEmail: string, presetPassword: string, presetName: string): void => {
     try {
       onLogin(presetEmail, presetName, presetPassword, false);
     } catch (error) {
@@ -104,6 +94,7 @@ export function AdminLogin({ onLogin }: AdminLoginProps) {
           variant="outline"
           size="sm"
           onClick={() => setShowDebug((v) => !v)}
+          type="button"
         >
           {showDebug ? "Hide" : "Show"} Debug
         </Button>
@@ -137,7 +128,7 @@ export function AdminLogin({ onLogin }: AdminLoginProps) {
                   type="email"
                   value={email}
                   onChange={handleEmailChange}
-                  onBlur={handleEmailBlur}
+                  onBlur={() => void handleEmailBlur()}
                   required
                   placeholder="yourname@emerson.com"
                   disabled={isEmailReadOnly}
@@ -196,19 +187,11 @@ export function AdminLogin({ onLogin }: AdminLoginProps) {
 
           {import.meta.env.DEV && (
             <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
-              <p className="text-xs text-gray-500 mb-3 text-center">
-                Quick Login (Dev Only)
-              </p>
+              <p className="text-xs text-gray-500 mb-3 text-center">Quick Login (Dev Only)</p>
 
               <div className="space-y-2">
                 <Button
-                  onClick={() =>
-                    handlePresetLogin(
-                      "mary.owner@emerson.com",
-                      "Emerson!",
-                      "Mary Owner"
-                    )
-                  }
+                  onClick={() => handlePresetLogin("mary.owner@emerson.com", "Emerson!", "Mary Owner")}
                   className="w-full bg-purple-600 text-xs"
                   type="button"
                 >
@@ -216,13 +199,7 @@ export function AdminLogin({ onLogin }: AdminLoginProps) {
                 </Button>
 
                 <Button
-                  onClick={() =>
-                    handlePresetLogin(
-                      "mary.admin@emerson.com",
-                      "Emerson!",
-                      "Mary Admin"
-                    )
-                  }
+                  onClick={() => handlePresetLogin("mary.admin@emerson.com", "Emerson!", "Mary Admin")}
                   className="w-full bg-blue-600 text-xs"
                   type="button"
                 >
@@ -230,13 +207,7 @@ export function AdminLogin({ onLogin }: AdminLoginProps) {
                 </Button>
 
                 <Button
-                  onClick={() =>
-                    handlePresetLogin(
-                      "test.user@emerson.com",
-                      "Emerson!",
-                      "Test User"
-                    )
-                  }
+                  onClick={() => handlePresetLogin("test.user@emerson.com", "Emerson!", "Test User")}
                   className="w-full bg-green-600 text-xs"
                   type="button"
                 >

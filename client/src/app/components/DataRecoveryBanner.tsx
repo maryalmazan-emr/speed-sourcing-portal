@@ -1,4 +1,4 @@
-// File: src/app/components/DataRecoveryBanner.tsx
+// File: client/src/app/components/DataRecoveryBanner.tsx
 
 "use client";
 
@@ -47,9 +47,7 @@ export function DataRecoveryBanner() {
 
   const handleRestoreBackup = async (backup: BackupData): Promise<void> => {
     const confirmed = window.confirm(
-      `Restore data from backup?\n\nBackup from: ${new Date(
-        backup.timestamp
-      ).toLocaleString()}`
+      `Restore data from backup?\n\nBackup from: ${new Date(backup.timestamp).toLocaleString()}`
     );
 
     if (!confirmed) return;
@@ -124,17 +122,12 @@ export function DataRecoveryBanner() {
                         )}
                       </div>
                       <div className="text-gray-600 dark:text-gray-400">
-                        {backup.admins.length} admins •{" "}
-                        {backup.auctions.length} auctions •{" "}
-                        {backup.invites.length} invites •{" "}
-                        {backup.bids.length} bids
+                        {backup.admins.length} admins • {backup.auctions.length} auctions •{" "}
+                        {backup.invites.length} invites • {backup.bids.length} bids
                       </div>
                     </div>
 
-                    <Button
-                      size="sm"
-                      onClick={() => handleRestoreBackup(backup)}
-                    >
+                    <Button size="sm" onClick={() => void handleRestoreBackup(backup)} type="button">
                       <RefreshCw className="h-3 w-3 mr-1" />
                       Restore
                     </Button>
@@ -148,6 +141,7 @@ export function DataRecoveryBanner() {
                   variant="outline"
                   onClick={handleImportFile}
                   className="bg-white dark:bg-gray-800"
+                  type="button"
                 >
                   <Upload className="h-4 w-4 mr-2" />
                   Import Backup File
