@@ -1,5 +1,4 @@
 // File: client/src/app/components/ManageGlobalAdmins.tsx
-
 "use client";
 
 import { useEffect, useState } from "react";
@@ -139,8 +138,9 @@ export function ManageGlobalAdmins({ onBack }: ManageGlobalAdminsProps) {
               <ArrowLeft className="h-4 w-4 mr-2" />
               Back
             </Button>
+
             <div>
-              <h1 className="text-2xl font-bold flex items-center gap-2">
+              <h1 className="text-2xl font-bold flex items-center gap-2 text-gray-900 dark:text-white">
                 <Shield className="h-6 w-6 text-purple-600" />
                 Manage Global Administrators
               </h1>
@@ -158,10 +158,15 @@ export function ManageGlobalAdmins({ onBack }: ManageGlobalAdminsProps) {
               </Button>
             </DialogTrigger>
 
-            <DialogContent className="sm:max-w-125">
+            {/* ✅ fix invalid max-w class + dark mode text safety */}
+            <DialogContent className="sm:max-w-130">
               <DialogHeader>
-                <DialogTitle>Add Global Administrator</DialogTitle>
-                <DialogDescription>Create a new Global Administrator account.</DialogDescription>
+                <DialogTitle className="text-gray-900 dark:text-white">
+                  Add Global Administrator
+                </DialogTitle>
+                <DialogDescription className="text-gray-600 dark:text-gray-400">
+                  Create a new Global Administrator account.
+                </DialogDescription>
               </DialogHeader>
 
               <div className="grid gap-4 py-4">
@@ -241,9 +246,14 @@ export function ManageGlobalAdmins({ onBack }: ManageGlobalAdminsProps) {
 
         <Card>
           <CardHeader>
-            <CardTitle>Administrator Accounts</CardTitle>
-            <CardDescription>All Product Owner and Global Administrator accounts</CardDescription>
+            <CardTitle className="text-gray-900 dark:text-white">
+              Administrator Accounts
+            </CardTitle>
+            <CardDescription className="text-gray-600 dark:text-gray-400">
+              All Product Owner and Global Administrator accounts
+            </CardDescription>
           </CardHeader>
+
           <CardContent>
             <Table>
               <TableHeader>
@@ -254,6 +264,7 @@ export function ManageGlobalAdmins({ onBack }: ManageGlobalAdminsProps) {
                   <TableHead>Created</TableHead>
                 </TableRow>
               </TableHeader>
+
               <TableBody>
                 {admins.length === 0 ? (
                   <TableRow>
@@ -264,10 +275,16 @@ export function ManageGlobalAdmins({ onBack }: ManageGlobalAdminsProps) {
                 ) : (
                   admins.map((admin) => (
                     <TableRow key={admin.id}>
-                      <TableCell className="font-medium">{admin.company_name}</TableCell>
-                      <TableCell>{admin.email}</TableCell>
+                      <TableCell className="font-medium text-gray-900 dark:text-gray-100">
+                        {admin.company_name}
+                      </TableCell>
+                      <TableCell className="text-gray-700 dark:text-gray-300">
+                        {admin.email}
+                      </TableCell>
                       <TableCell>{getRoleBadge(admin.role)}</TableCell>
-                      <TableCell>{formatCreatedAt((admin as any).created_at)}</TableCell>
+                      <TableCell className="text-gray-700 dark:text-gray-300">
+                        {formatCreatedAt((admin as any).created_at)}
+                      </TableCell>
                     </TableRow>
                   ))
                 )}
@@ -280,9 +297,4 @@ export function ManageGlobalAdmins({ onBack }: ManageGlobalAdminsProps) {
   );
 }
 
-/**
- * Default export added so both import styles work:
- *  - import { ManageGlobalAdmins } from "...";
- *  - import ManageGlobalAdmins from "...";
- */
 export default ManageGlobalAdmins;

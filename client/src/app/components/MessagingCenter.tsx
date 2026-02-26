@@ -1,5 +1,4 @@
 // File: client/src/app/components/MessagingCenter.tsx
-
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -70,12 +69,12 @@ export function MessagingCenter({ onBack, adminRole }: MessagingCenterProps) {
     },
     external_guest: {
       label: "External Guest",
-      color: "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200",
+      color: "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200",
     },
   } as const;
 
   const getRoleBadge = (role: Account["role"]) => {
-    const config = roleConfig[role] ?? { label: role, color: "bg-gray-100 text-gray-800" };
+    const config = roleConfig[role] ?? { label: role, color: "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200" };
 
     return (
       <span
@@ -208,8 +207,10 @@ export function MessagingCenter({ onBack, adminRole }: MessagingCenterProps) {
           <div className="lg:col-span-2">
             <Card>
               <CardHeader>
-                <CardTitle>Select Recipients</CardTitle>
-                <CardDescription>Choose who should receive your message</CardDescription>
+                <CardTitle className="text-gray-900 dark:text-white">Select Recipients</CardTitle>
+                <CardDescription className="text-gray-600 dark:text-gray-400">
+                  Choose who should receive your message
+                </CardDescription>
               </CardHeader>
 
               <CardContent className="space-y-4">
@@ -339,8 +340,10 @@ export function MessagingCenter({ onBack, adminRole }: MessagingCenterProps) {
           <div className="lg:col-span-1">
             <Card className="sticky top-4">
               <CardHeader>
-                <CardTitle>Compose Message</CardTitle>
-                <CardDescription>From: Emerson Procurement Team</CardDescription>
+                <CardTitle className="text-gray-900 dark:text-white">Compose Message</CardTitle>
+                <CardDescription className="text-gray-600 dark:text-gray-400">
+                  From: Emerson Procurement Team
+                </CardDescription>
               </CardHeader>
 
               <CardContent className="space-y-4">

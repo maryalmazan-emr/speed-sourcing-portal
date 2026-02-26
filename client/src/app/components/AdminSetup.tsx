@@ -13,11 +13,10 @@ import {
   CardHeader,
   CardTitle,
 } from "@/app/components/ui/card";
-import { Copy, Check, ArrowRight, ArrowLeft, Plus, Trash2 } from "lucide-react";
+import { ArrowRight, ArrowLeft, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { apiCreateAuction, apiCreateInvites } from "@/lib/api";
-import { copyToClipboard } from "@/lib/clipboard";
 import {
   Select,
   SelectContent,
@@ -32,44 +31,26 @@ interface PartNumber {
   quantity: string;
 }
 
-type AdminSession = {
-  name: string;
-  email: string;
-};
-
-type Invite = {
-  email: string;
-  company_name: string;
-  status: "pending" | "accessed" | "submitted" | string;
-};
-
 interface AdminSetupProps {
   onComplete: () => void;
-  adminSession: AdminSession;
+  adminSession: any;
 }
 
-type FormDataState = {
-  date_requested: string;
-  requestor: string;
-  requestor_email: string;
-  group_site: string;
-  name: string;
-  description: string;
-  start_date: string;
-  end_date: string;
-  event_type: "" | "ORDER" | "QUOTE";
-  target_lead_time: string;
-  notes: string;
+type Step = 1 | 2 | 3;
+
+type InviteRow = {
+  email: string;
+  company_name: string;
+  status: "pending" | string;
 };
 
 export function AdminSetup({ onComplete, adminSession }: AdminSetupProps) {
-  const [step, setStep] = useState<1 | 2 | 3>(1);
-  const [loading, setLoading] = useState(false);
+  const [step, setStep] = useState<Step>(1);
 
-  const [formData, setFormData] = useState<FormDataState>({
+  const [formData, setFormData] = useState({
     date_requested: new Date().toISOString().split("T")[0],
-    requestor: adminSession?.name ?? "",
-    requestor_email: adminSession?.email ?? "",
+    requestor: adminSession?.name || "Current User",
+    requestor_email: adminSession?.email || "admin@emerson.com",
     group_site: "",
     name: "",
     description: "",
@@ -85,8 +66,8 @@ export function AdminSetup({ onComplete, adminSession }: AdminSetupProps) {
   ]);
 
   const [vendorEmails, setVendorEmails] = useState("");
-  const [invites, setInvites] = useState<Invite[]>([]);
-  const [copied, setCopied] = useState(false);
+  const [invites, setInvites] = useState<InviteRow[]>([]);
+  const [loading, setLoading] = useState(false);
 
   const addPartNumber = (): void => {
     setPartNumbers((prev) => [
@@ -112,28 +93,60 @@ export function AdminSetup({ onComplete, adminSession }: AdminSetupProps) {
     );
   };
 
+  const validateStep1 = (): boolean => {
+    if (!formData.group_site || !formData.name || !formData.description) {
+      toast.error("Group/Site, Name, and Description are required");
+      return false;
+    }
+
+    if (!formData.start_date || !formData.end_date) {
+      toast.error("Start and End dates are required");
+      return false;
+    }
+
+    if (!formData.event_type) {
+      toast.error("Event Type is required");
+      return false;
+    }
+
+    if (!formData.target_lead_time) {
+      toast.error("Target Lead Time is required");
+      return false;
+    }
+
+    const startDate = new Date(formData.start_date);
+    const endDate = new Date(formData.end_date);
+    if (endDate <= startDate) {
+      toast.error("End date must be after start date");
+      return false;
+    }
+
+    const validParts = partNumbers.filter(
+      (p) => p.part_number.trim() && p.quantity.trim()
+    );
+    if (validParts.length === 0) {
+      toast.error("At least one part number with quantity is required");
+      return false;
+    }
+
+    const totalQty = validParts.reduce((sum, p) => {
+      const n = Number.parseInt(p.quantity, 10);
+      return sum + (Number.isFinite(n) ? n : 0);
+    }, 0);
+
+    if (totalQty <= 0) {
+      toast.error("Total quantity must be greater than 0");
+      return false;
+    }
+
+    return true;
+  };
+
   const handleNext = (): void => {
     if (step === 1) {
-      if (
-        !formData.group_site ||
-        !formData.name ||
-        !formData.description ||
-        !formData.start_date ||
-        !formData.end_date ||
-        !formData.event_type ||
-        !formData.target_lead_time
-      ) {
-        toast.error("All required fields must be completed");
-        return;
-      }
-
-      const validParts = partNumbers.filter(
-        (p) => p.part_number.trim() && p.quantity.trim()
-      );
-      if (validParts.length === 0) {
-        toast.error("At least one part number is required");
-        return;
-      }
+      if (!validateStep1()) return;
+      setStep(2);
+      return;
     }
 
     if (step === 2) {
@@ -142,12 +155,12 @@ export function AdminSetup({ onComplete, adminSession }: AdminSetupProps) {
         .map((e) => e.trim().toLowerCase())
         .filter((e) => e && e.includes("@"));
 
-      if (!emails.length) {
-        toast.error("Enter at least one valid email");
+      if (emails.length === 0) {
+        toast.error("Please enter at least one valid email address");
         return;
       }
 
-      // Optional: de-dupe emails while preserving order
+      // de-dupe preserving order
       const seen = new Set<string>();
       const deduped = emails.filter((e) => {
         if (seen.has(e)) return false;
@@ -162,43 +175,33 @@ export function AdminSetup({ onComplete, adminSession }: AdminSetupProps) {
           status: "pending",
         }))
       );
+
+      setStep(3);
+      return;
     }
 
-    setStep((prev) => (prev === 1 ? 2 : 3));
+    // step 3 uses Submit action only
   };
 
   const handleBack = (): void => {
     setStep((prev) => (prev === 3 ? 2 : 1));
   };
 
-  const copyVendorList = async (): Promise<void> => {
-    if (invites.length === 0) {
-      toast.error("No vendor emails to copy");
-      return;
-    }
-
-    const text = invites.map((i) => i.email).join("\n");
-    const ok = await copyToClipboard(text);
-
-    if (ok) {
-      setCopied(true);
-      toast.success("Vendor list copied");
-      setTimeout(() => setCopied(false), 1500);
-    } else {
-      toast.error("Failed to copy");
-    }
+  const handleSubmit = async (): Promise<void> => {
+    await launchAuction();
   };
 
+  // ✅ CHANGE REQUESTED: remove draft path entirely (always launch active)
   const launchAuction = async (): Promise<void> => {
     if (loading) return;
 
     if (!adminSession?.email) {
-      toast.error("Admin email is required to create an auction");
+      toast.error("Admin email is required");
       return;
     }
 
-    if (!invites.length) {
-      toast.error("Add at least one vendor before launching");
+    if (invites.length === 0) {
+      toast.error("Add at least one External Guest before submitting");
       return;
     }
 
@@ -209,47 +212,33 @@ export function AdminSetup({ onComplete, adminSession }: AdminSetupProps) {
         (p) => p.part_number.trim() && p.quantity.trim()
       );
 
-      if (validParts.length === 0) {
-        toast.error("At least one part number with quantity is required");
-        return;
-      }
-
       const totalQty = validParts.reduce((sum, p) => {
         const n = Number.parseInt(p.quantity, 10);
         return sum + (Number.isFinite(n) ? n : 0);
       }, 0);
 
-      if (totalQty <= 0) {
-        toast.error("Total quantity must be greater than 0");
-        return;
-      }
-
       const productDetails = validParts
         .map((p) => `${p.part_number.trim()}: ${p.quantity.trim()}`)
         .join("; ");
 
-      const startIso = new Date(formData.start_date).toISOString();
-      const endIso = new Date(formData.end_date).toISOString();
+      const startsAtIso = new Date(formData.start_date).toISOString();
+      const endsAtIso = new Date(formData.end_date).toISOString();
 
       const auctionPayload = {
         title: formData.name,
         description: formData.description,
-        status: "active",
+        status: "active", // ✅ always active (draft removed)
         product_details: productDetails,
         quantity: totalQty,
         unit: "EA",
         delivery_location: formData.group_site,
-        starts_at: startIso,
-        ends_at: endIso,
+        starts_at: startsAtIso,
+        ends_at: endsAtIso,
         winner_vendor_email: null,
 
-        // primary fields (ASP.NET uses these)
+        // Admin / request metadata
         created_by_email: adminSession.email,
         created_by_company: adminSession.name,
-
-        // compatibility fields (harmless to ASP.NET, prevents “wrong backend” 400s)
-        created_by_admin_email: adminSession.email,
-        createdByAdminEmail: adminSession.email,
 
         date_requested: formData.date_requested,
         requestor: formData.requestor,
@@ -260,114 +249,176 @@ export function AdminSetup({ onComplete, adminSession }: AdminSetupProps) {
         notes: formData.notes,
       };
 
-      const created = await apiCreateAuction(auctionPayload as any);
+      const createdAuction = await apiCreateAuction(auctionPayload as any);
 
       const auctionId =
-        (created as any)?.id ??
-        (created as any)?.auction?.id ??
-        (created as any)?.auction_id;
+        (createdAuction as any)?.id ??
+        (createdAuction as any)?.auction?.id ??
+        (createdAuction as any)?.auction_id;
 
       if (!auctionId) {
         throw new Error("Auction created but no id was returned by server");
       }
 
-      await apiCreateInvites(
-        auctionId,
-        invites.map((i) => ({
-          email: i.email,
-          company: i.company_name,
-        })),
-        "manual"
-      );
+      const vendorsToInvite = invites.map((i) => ({
+        email: i.email,
+        company: i.company_name,
+      }));
 
-      toast.success(`Auction launched with ${invites.length} vendor invitations`);
+      await apiCreateInvites(String(auctionId), vendorsToInvite, "manual");
+
+      // ✅ CHANGE REQUESTED: remove draft messaging
+      toast.success(`Auction launched with ${invites.length} External Guest invitations!`);
+
       onComplete();
-    } catch (e: unknown) {
+    } catch (error: unknown) {
       const msg =
-        e && typeof e === "object" && "message" in e
-          ? String((e as any).message)
-          : "Failed to launch auction";
-      toast.error(msg);
+        error && typeof error === "object" && "message" in error
+          ? String((error as any).message)
+          : "Unknown error";
+      console.error("Launch error:", error);
+
+      // ✅ CHANGE REQUESTED: remove draft messaging
+      toast.error(`Failed to launch auction: ${msg}`);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="container mx-auto px-4 py-8" style={{ maxWidth: "1180px" }}>
+    <div
+      className="container mx-auto px-4 py-8 max-w-4xl"
+      style={{ maxWidth: "1180px" }}
+    >
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold mb-2 text-gray-900 dark:text-white">
+          New Auction Request
+        </h1>
+
+        <div className="flex gap-2">
+          {[1, 2, 3].map((s) => (
+            <div
+              key={s}
+              className={`flex-1 h-2 rounded ${
+                s <= step
+                  ? "bg-[#00573d] dark:bg-[#00805a]"
+                  : "bg-gray-200 dark:bg-gray-700"
+              }`}
+            />
+          ))}
+        </div>
+      </div>
+
       {step === 1 && (
         <Card>
           <CardHeader>
-            <CardTitle>Step 1: Event Details</CardTitle>
-            <CardDescription>Define auction basics</CardDescription>
+            <CardTitle>Step 1: Basic Info & Event Details</CardTitle>
+            <CardDescription>Define the auction parameters</CardDescription>
           </CardHeader>
 
           <CardContent className="space-y-6">
-            <div>
-              <Label>Group / Site *</Label>
+            {/* Auto-populated fields */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-gray-100/50 dark:bg-gray-700/50 rounded-md border border-gray-200 dark:border-gray-600">
+              <div>
+                <Label className="text-xs text-gray-600 dark:text-gray-400">
+                  Date Requested
+                </Label>
+                <div className="font-medium text-gray-900 dark:text-white">
+                  {formData.date_requested}
+                </div>
+              </div>
+              <div>
+                <Label className="text-xs text-gray-600 dark:text-gray-400">
+                  Requestor
+                </Label>
+                <div className="font-medium text-gray-900 dark:text-white">
+                  {formData.requestor}
+                </div>
+              </div>
+              <div>
+                <Label className="text-xs text-gray-600 dark:text-gray-400">
+                  Requestor Email
+                </Label>
+                <div className="font-medium text-gray-900 dark:text-white">
+                  {formData.requestor_email}
+                </div>
+              </div>
+            </div>
 
+            {/* Group/Site */}
+            <div>
+              <Label htmlFor="group_site">Group/Site *</Label>
               <Select
                 value={formData.group_site}
-                onValueChange={(v) => setFormData({ ...formData, group_site: v })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select site" />
-                </SelectTrigger>
-
-                <SelectContent>
-                  <SelectItem value="MTWN">MTWN – Marshalltown</SelectItem>
-                  <SelectItem value="STL">STL – St. Louis</SelectItem>
-                  <SelectItem value="BOUL">BOUL – Boulder</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <Label>Event Type *</Label>
-
-              <Select
-                value={formData.event_type}
-                onValueChange={(v) =>
-                  setFormData({
-                    ...formData,
-                    event_type: v as FormDataState["event_type"],
-                  })
+                onValueChange={(value) =>
+                  setFormData({ ...formData, group_site: value })
                 }
               >
-                <SelectTrigger className="max-w-xs">
-                  <SelectValue placeholder="Select type" />
+                <SelectTrigger>
+                  <SelectValue placeholder="Select group/site" />
                 </SelectTrigger>
-
                 <SelectContent>
-                  <SelectItem value="ORDER">ORDER (Binding award)</SelectItem>
-                  <SelectItem value="QUOTE">QUOTE (PO for review)</SelectItem>
+                  <SelectItem value="MTN">MTN – Marshalltown, IA</SelectItem>
+                  <SelectItem value="MTWN">MTWN – Marshalltown, IA</SelectItem>
+                  <SelectItem value="SMR">SMR – Summer, WA</SelectItem>
+                  <SelectItem value="RRC">RRC – Rochester, NY</SelectItem>
+                  <SelectItem value="STL">STL – St. Louis, MO</SelectItem>
+                  <SelectItem value="BOUL">BOUL – Boulder, CO</SelectItem>
+                  <SelectItem value="SJO">SJO – San Jose, CA</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
+            {/* Name */}
             <div>
-              <Label>Event Name *</Label>
+              <Label htmlFor="name">Name (Title of this event) *</Label>
               <Input
+                id="name"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                placeholder="e.g., Industrial Safety Equipment Q1 2026"
               />
             </div>
 
+            {/* Description */}
             <div>
-              <Label>Description *</Label>
+              <Label htmlFor="description">Description (Details of this event) *</Label>
               <Textarea
-                rows={4}
+                id="description"
                 value={formData.description}
                 onChange={(e) =>
                   setFormData({ ...formData, description: e.target.value })
                 }
+                placeholder="Detailed requirements, specifications, and expectations..."
+                rows={4}
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            {/* Event Type */}
+            <div>
+              <Label htmlFor="event_type">Event Type *</Label>
+              <Select
+                value={formData.event_type}
+                onValueChange={(value) =>
+                  setFormData({ ...formData, event_type: value })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select event type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ORDER">ORDER - Firm commitment to purchase</SelectItem>
+                  <SelectItem value="QUOTE">QUOTE - Request for quotation</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Dates */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <Label>Start *</Label>
+                <Label htmlFor="start_date">Start Date *</Label>
                 <Input
+                  id="start_date"
                   type="datetime-local"
                   value={formData.start_date}
                   onChange={(e) =>
@@ -375,10 +426,10 @@ export function AdminSetup({ onComplete, adminSession }: AdminSetupProps) {
                   }
                 />
               </div>
-
               <div>
-                <Label>End *</Label>
+                <Label htmlFor="end_date">End Date *</Label>
                 <Input
+                  id="end_date"
                   type="datetime-local"
                   value={formData.end_date}
                   onChange={(e) =>
@@ -388,73 +439,83 @@ export function AdminSetup({ onComplete, adminSession }: AdminSetupProps) {
               </div>
             </div>
 
+            {/* Target Lead Time */}
             <div>
-              <Label>Target Lead Time (days) *</Label>
-              <Input
-                type="number"
-                className="max-w-xs"
-                value={formData.target_lead_time}
-                onChange={(e) =>
-                  setFormData({ ...formData, target_lead_time: e.target.value })
-                }
-              />
+              <Label htmlFor="target_lead_time">
+                Target Lead Time (ARO - After Receipt of Order) *
+              </Label>
+              <div className="flex gap-2 items-center">
+                <Input
+                    id="target_lead_time"
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    value={formData.target_lead_time}
+                    onChange={(e) => {
+                      const digitsOnly = e.target.value.replace(/\D+/g, "");
+                      setFormData({ ...formData, target_lead_time: digitsOnly });
+                    }}
+                    placeholder="e.g., 30"
+                    className="max-w-xs"
+                  />
+                <span className="text-sm text-gray-600 dark:text-gray-400">days</span>
+              </div>
             </div>
 
+            {/* Part Numbers & Quantities */}
             <div>
-              <div className="flex justify-between mb-2">
-                <Label>Part Numbers *</Label>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={addPartNumber}
-                  type="button"
-                >
+              <div className="flex items-center justify-between mb-2">
+                <Label>Part Numbers & Quantities *</Label>
+                <Button size="sm" variant="outline" onClick={addPartNumber} type="button">
                   <Plus className="h-4 w-4 mr-1" />
-                  Add
+                  Add Part
                 </Button>
               </div>
 
-              {partNumbers.map((p) => (
-                <div key={p.id} className="flex gap-2 mb-2">
-                  <Input
-                    placeholder="Part #"
-                    value={p.part_number}
-                    onChange={(e) =>
-                      updatePartNumber(p.id, "part_number", e.target.value)
-                    }
-                  />
-                  <Input
-                    placeholder="Qty"
-                    value={p.quantity}
-                    onChange={(e) =>
-                      updatePartNumber(p.id, "quantity", e.target.value)
-                    }
-                  />
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    disabled={partNumbers.length === 1}
-                    onClick={() => removePartNumber(p.id)}
-                    type="button"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              ))}
+              <div className="space-y-2">
+                {partNumbers.map((part) => (
+                  <div key={part.id} className="flex gap-2 items-center">
+                    <Input
+                      placeholder="Part Number"
+                      value={part.part_number}
+                      onChange={(e) =>
+                        updatePartNumber(part.id, "part_number", e.target.value)
+                      }
+                      className="flex-1"
+                    />
+                    <Input
+                      placeholder="Quantity"
+                      value={part.quantity}
+                      onChange={(e) =>
+                        updatePartNumber(part.id, "quantity", e.target.value)
+                      }
+                      className="w-32"
+                    />
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      onClick={() => removePartNumber(part.id)}
+                      disabled={partNumbers.length === 1}
+                      type="button"
+                    >
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
             </div>
 
+            {/* Notes */}
             <div>
-              <Label>Notes (optional)</Label>
+              <Label htmlFor="notes">Additional Notes (Optional)</Label>
               <Textarea
-                rows={3}
+                id="notes"
                 value={formData.notes}
                 onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                placeholder="Any additional information..."
+                rows={3}
               />
             </div>
-
-            <Button onClick={handleNext} className="w-full" type="button">
-              Next <ArrowRight className="h-4 w-4 ml-2" />
-            </Button>
           </CardContent>
         </Card>
       )}
@@ -462,28 +523,46 @@ export function AdminSetup({ onComplete, adminSession }: AdminSetupProps) {
       {step === 2 && (
         <Card>
           <CardHeader>
-            <CardTitle>Step 2: Vendor Emails</CardTitle>
-            <CardDescription>Paste vendor emails (comma or line separated)</CardDescription>
+            <CardTitle>Step 2: External Guest Emails</CardTitle>
+            <CardDescription>
+              Paste External Guest email addresses (one per line or comma-separated).
+              External Guests will provide their company info when they log in.
+            </CardDescription>
           </CardHeader>
 
           <CardContent className="space-y-4">
-            <Textarea
-              rows={6}
-              placeholder="vendor1@email.com, vendor2@email.com"
-              value={vendorEmails}
-              onChange={(e) => setVendorEmails(e.target.value)}
-            />
-
-            <div className="flex justify-between">
-              <Button variant="outline" onClick={handleBack} type="button">
-                <ArrowLeft className="h-4 w-4 mr-1" />
-                Back
-              </Button>
-
-              <Button onClick={handleNext} type="button">
-                Next <ArrowRight className="h-4 w-4 ml-1" />
-              </Button>
+            <div>
+              <Label htmlFor="vendor_emails">External Guest Email Addresses *</Label>
+              <Textarea
+                id="vendor_emails"
+                value={vendorEmails}
+                onChange={(e) => setVendorEmails(e.target.value)}
+                placeholder={`guest1@company.com
+guest2@company.com
+guest3@company.com
+Or comma-separated: guest1@company.com, guest2@company.com`}
+                rows={10}
+                className="font-mono text-sm"
+              />
+              <p className="text-xs text-gray-600 dark:text-gray-400 mt-2">
+                Tip: Paste one email per line, or separate with commas. External Guests will
+                enter their company name and contact details when they log in to place their bid.
+              </p>
             </div>
+
+            {vendorEmails.trim() && (
+              <div className="p-3 bg-gray-100/50 dark:bg-gray-700/50 rounded-md border border-gray-200 dark:border-gray-600">
+                <p className="text-sm text-gray-700 dark:text-gray-300">
+                  <strong>Preview:</strong>{" "}
+                  {
+                    vendorEmails
+                      .split(/[,\n]/)
+                      .filter((e) => e.trim() && e.includes("@")).length
+                  }{" "}
+                  valid email(s) detected
+                </p>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
@@ -491,54 +570,105 @@ export function AdminSetup({ onComplete, adminSession }: AdminSetupProps) {
       {step === 3 && (
         <Card>
           <CardHeader>
-            <CardTitle>Step 3: Review &amp; Launch</CardTitle>
+            <CardTitle>Step 3: Review & Launch</CardTitle>
             <CardDescription>Review invitation details and launch the auction</CardDescription>
           </CardHeader>
 
           <CardContent className="space-y-4">
-            <div className="flex items-center justify-between gap-3">
-              <h3 className="font-semibold">Vendor Invitations ({invites.length})</h3>
+            <div className="p-4 bg-gray-100/50 dark:bg-gray-700/50 rounded-md border border-gray-200 dark:border-gray-600">
+              <h3 className="font-semibold mb-2 text-gray-900 dark:text-white">
+                Auction Summary
+              </h3>
 
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => void copyVendorList()}
-                type="button"
-                disabled={invites.length === 0}
-              >
-                {copied ? <Check className="h-4 w-4 mr-1" /> : <Copy className="h-4 w-4 mr-1" />}
-                {copied ? "Copied" : "Copy Emails"}
-              </Button>
+              <div className="space-y-1 text-sm">
+                <div>
+                  <span className="text-gray-600 dark:text-gray-400">Name:</span>{" "}
+                  <span className="font-medium text-gray-900 dark:text-white">
+                    {formData.name}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-gray-600 dark:text-gray-400">Group/Site:</span>{" "}
+                  <span className="font-medium text-gray-900 dark:text-white">
+                    {formData.group_site}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-gray-600 dark:text-gray-400">Event Type:</span>{" "}
+                  <span className="font-medium text-gray-900 dark:text-white">
+                    {formData.event_type}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-gray-600 dark:text-gray-400">
+                    Target Lead Time:
+                  </span>{" "}
+                  <span className="font-medium text-gray-900 dark:text-white">
+                    {formData.target_lead_time} days
+                  </span>
+                </div>
+                <div>
+                  <span className="text-gray-600 dark:text-gray-400">Duration:</span>{" "}
+                  <span className="font-medium text-gray-900 dark:text-white">
+                    {new Date(formData.start_date).toLocaleString()} →{" "}
+                    {new Date(formData.end_date).toLocaleString()}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-gray-600 dark:text-gray-400">Vendors:</span>{" "}
+                  <span className="font-medium text-gray-900 dark:text-white">
+                    {invites.length}
+                  </span>
+                </div>
+              </div>
             </div>
 
-            <div className="space-y-2">
-              {invites.map((invite, index) => (
-                <div
-                  key={`${invite.email}-${index}`}
-                  className="flex items-center justify-between p-3 bg-gray-100/50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-md"
-                >
-                  <div className="flex-1">
-                    <div className="font-medium">{invite.email}</div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                      Invite code will be generated after submission
+            <div>
+              <h3 className="font-semibold mb-3 text-gray-900 dark:text-white">
+                Vendor Invitations ({invites.length} External Guests)
+              </h3>
+
+              <div className="space-y-2">
+                {invites.map((invite, index) => (
+                  <div
+                    key={`${invite.email}-${index}`}
+                    className="flex items-center justify-between p-3 bg-gray-100/50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-md"
+                  >
+                    <div className="flex-1">
+                      <div className="font-medium text-gray-900 dark:text-white">
+                        {invite.email}
+                      </div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                        Invite link/code will be generated after submission
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
+
+              <div className="mt-3 p-3 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-md">
+                <p className="text-sm text-blue-900 dark:text-blue-200">
+                  <strong>📋 Next Step:</strong> After you submit, you'll see the Admin
+                  Dashboard where you can copy invite codes and send them to vendors.
+                </p>
+              </div>
+
+              <div className="mt-3 p-3 bg-gray-50 dark:bg-gray-900/30 border border-gray-200 dark:border-gray-700 rounded-md">
+                <p className="text-sm text-gray-900 dark:text-white">
+                  <strong>Note:</strong> Vendor communications should include only the event
+                  link/code, timing, and part numbers/quantities (avoid internal preferences).
+                </p>
+              </div>
             </div>
           </CardContent>
         </Card>
       )}
 
+      {/* Navigation */}
       <div className="flex items-center justify-between mt-6">
         <div>
           {step > 1 && (
-            <Button
-              variant="outline"
-              onClick={handleBack}
-              disabled={loading}
-              type="button"
-            >
+            <Button variant="outline" onClick={handleBack} disabled={loading} type="button">
               <ArrowLeft className="h-4 w-4 mr-2" />
               Back
             </Button>
@@ -546,8 +676,9 @@ export function AdminSetup({ onComplete, adminSession }: AdminSetupProps) {
         </div>
 
         <div className="flex gap-2">
+          {/* ✅ CHANGE REQUESTED: Save as Draft removed */}
           <Button
-            onClick={() => void (step === 3 ? launchAuction() : Promise.resolve(handleNext()))}
+            onClick={step === 3 ? handleSubmit : handleNext}
             disabled={loading}
             type="button"
           >

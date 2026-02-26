@@ -1,5 +1,4 @@
 // File: client/src/app/components/AdminDashboard.tsx
-
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
@@ -65,22 +64,60 @@ export function AdminDashboard({ auction, onRefresh, adminRole }: AdminDashboard
 
   const getShortId = (uuid: string) => uuid.substring(0, 8).toUpperCase();
 
+  /**
+   * ✅ Invite shape compatibility:
+   * Depending on backend version, invites can come back as:
+   *  - { vendor_email, invite_token, status, auction_id }
+   *  - { email, invite_code, status, auction_id }
+   */
+  const getInviteEmail = (invite: any): string =>
+    String(invite?.vendor_email ?? invite?.email ?? "");
+
+  const getInviteToken = (invite: any): string =>
+    String(invite?.invite_token ?? invite?.invite_code ?? invite?.token ?? "");
+
+  const getInviteStatus = (invite: any): string =>
+    String(invite?.status ?? "pending");
+
+  const isInviteForAuction = (invite: any, auctionId: string): boolean => {
+    const aId =
+      invite?.auction_id ??
+      invite?.auctionId ??
+      invite?.auction?.id ??
+      invite?.auctionID;
+    if (aId == null) return false;
+    return String(aId) === String(auctionId);
+  };
+
   const loadData = useCallback(async () => {
     if (!auction?.id) return;
 
     setLoading(true);
     try {
-      const allInvites = await apiGetInvites(auction.id);
-      const allBids = await apiGetBids(auction.id);
+      // ✅ Try server-side filter first
+      let allInvites = (await apiGetInvites(auction.id)) as any[];
+
+      // ✅ Fallback: if backend ignores/doesn't support query param, fetch all and filter locally
+      if (!Array.isArray(allInvites) || allInvites.length === 0) {
+        const raw = (await apiGetInvites()) as any[];
+        allInvites = Array.isArray(raw)
+          ? raw.filter((i) => isInviteForAuction(i, auction.id))
+          : [];
+      }
+
+      const allBids = (await apiGetBids(auction.id)) as any[];
 
       const sortedBids = (allBids || []).sort((a: Bid, b: Bid) => {
-        if (a.delivery_time_days !== b.delivery_time_days) {
-          return a.delivery_time_days - b.delivery_time_days;
+        if ((a as any).delivery_time_days !== (b as any).delivery_time_days) {
+          return (a as any).delivery_time_days - (b as any).delivery_time_days;
         }
-        if (a.cost_per_unit !== b.cost_per_unit) {
-          return a.cost_per_unit - b.cost_per_unit;
+        if ((a as any).cost_per_unit !== (b as any).cost_per_unit) {
+          return (a as any).cost_per_unit - (b as any).cost_per_unit;
         }
-        return new Date(a.submitted_at).getTime() - new Date(b.submitted_at).getTime();
+        return (
+          new Date((a as any).submitted_at).getTime() -
+          new Date((b as any).submitted_at).getTime()
+        );
       });
 
       setInvites((allInvites || []) as VendorInvite[]);
@@ -111,9 +148,16 @@ export function AdminDashboard({ auction, onRefresh, adminRole }: AdminDashboard
   // Real invite link includes token so vendors do NOT fall back to admin login
   const copyInvite = useCallback(
     async (index: number) => {
-      const invite = invites[index];
-      if (!invite?.invite_token) {
-        toast.error("Invalid invite");
+      const invite = invites[index] as any;
+      const token = getInviteToken(invite);
+      const email = getInviteEmail(invite);
+
+      if (!token) {
+        toast.error("Invalid invite (missing token)");
+        return;
+      }
+      if (!email) {
+        toast.error("Invalid invite (missing email)");
         return;
       }
       if (!auction?.title) {
@@ -122,16 +166,17 @@ export function AdminDashboard({ auction, onRefresh, adminRole }: AdminDashboard
       }
 
       const inviteUrl = `${window.location.origin}/?invite=${encodeURIComponent(
-        invite.invite_token
-      )}&email=${encodeURIComponent(invite.vendor_email)}`;
+        token
+      )}&email=${encodeURIComponent(email)}`;
 
+      // ✅ Do NOT include internal preference fields like target lead time in vendor message
       const message = `Hello,
 
 You are invited to participate in a sourcing event hosted through the Emerson Speed Sourcing Portal for ${auction.title}
 
 Invite Link: ${inviteUrl}
-Email: ${invite.vendor_email}
-Invite Code: ${invite.invite_token}
+Email: ${email}
+Invite Code: ${token}
 
 Emerson Procurement Team`;
 
@@ -176,14 +221,17 @@ Emerson Procurement Team`;
       toast.success("Winner selected and auction closed");
       setSelectedWinnerEmail(null);
       setConfirmDialogOpen(false);
+
+      // Refresh parent + reload local data so UI updates instantly
       onRefresh();
+      void loadData();
       return;
     } catch (err) {
       console.error(err);
       toast.error("Failed to select winner");
       return;
     }
-  }, [auction?.id, onRefresh, selectedWinnerEmail]);
+  }, [auction?.id, onRefresh, selectedWinnerEmail, loadData]);
 
   if (loading) {
     return <div className="text-center py-8">Loading…</div>;
@@ -213,15 +261,18 @@ Emerson Procurement Team`;
       <Card className="mb-6">
         <CardHeader>
           <div className="flex items-center gap-2 mb-2">
-            <span className="text-xs font-mono bg-gray-100 px-2 py-1 rounded">
+            {/* ✅ FIX: Dark mode readability for the Auction ID chip */}
+            <span className="text-xs font-mono px-2 py-1 rounded border bg-gray-100 text-gray-900 border-gray-200 dark:bg-gray-800 dark:text-gray-100 dark:border-gray-700">
               ID: {getShortId(auction.id)}
             </span>
+
             {auction.winner_vendor_email ? (
               <Badge className="bg-[#00573d] text-white">Awarded</Badge>
             ) : (
               <Badge className="bg-[#004b8d] text-white">Active</Badge>
             )}
           </div>
+
           <CardTitle>{auction.title}</CardTitle>
           {auction.description ? <CardDescription>{auction.description}</CardDescription> : null}
         </CardHeader>
@@ -232,9 +283,10 @@ Emerson Procurement Team`;
           <CardTitle>Bids & Leaderboard ({bids.length})</CardTitle>
           <CardDescription>Sorted by delivery time, price, timestamp</CardDescription>
         </CardHeader>
+
         <CardContent>
           {bids.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">No bids yet</div>
+            <div className="text-center py-8 text-gray-500 dark:text-gray-400">No bids yet</div>
           ) : (
             <Table>
               <TableHeader>
@@ -247,11 +299,16 @@ Emerson Procurement Team`;
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
+
               <TableBody>
-                {bids.map((bid, index) => (
+                {bids.map((bid: any, index: number) => (
                   <TableRow
                     key={bid.id}
-                    className={index === 0 ? "bg-gray-100 border-l-4 border-l-[#00573d]" : ""}
+                    className={
+                      index === 0
+                        ? "bg-gray-100 dark:bg-gray-800 border-l-4 border-l-[#00573d]"
+                        : ""
+                    }
                   >
                     <TableCell>
                       <div className="flex items-center gap-2">
@@ -259,12 +316,14 @@ Emerson Procurement Team`;
                         #{index + 1}
                       </div>
                     </TableCell>
+
                     <TableCell>{bid.company_name || "-"}</TableCell>
                     <TableCell>{bid.vendor_email}</TableCell>
                     <TableCell>{bid.delivery_time_days}</TableCell>
                     <TableCell>
-                      ${bid.cost_per_unit?.toLocaleString?.() ?? (bid as any).cost_per_unit}
+                      ${bid.cost_per_unit?.toLocaleString?.() ?? bid.cost_per_unit}
                     </TableCell>
+
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
                         <SendNotificationDialog
@@ -323,41 +382,53 @@ Emerson Procurement Team`;
                 </TableHeader>
 
                 <TableBody>
-                  {invites.map((invite, index) => (
-                    <TableRow key={(invite as any).id ?? index}>
-                      <TableCell>{(invite as any).vendor_email}</TableCell>
-                      <TableCell className="font-mono">{(invite as any).invite_token}</TableCell>
-                      <TableCell>
-                        <Badge variant={(invite as any).status === "accessed" ? "default" : "secondary"}>
-                          {(invite as any).status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right space-x-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => void copyCode((invite as any).invite_token)}
-                          type="button"
-                        >
-                          <Copy className="h-3 w-3 mr-1" />
-                          Code
-                        </Button>
+                  {invites.map((invite: any, index: number) => {
+                    const email = getInviteEmail(invite);
+                    const token = getInviteToken(invite);
+                    const status = getInviteStatus(invite);
 
-                        <Button size="sm" onClick={() => void copyInvite(index)} type="button">
-                          {copiedIndex === index ? (
-                            <Check className="h-3 w-3 mr-1" />
-                          ) : (
+                    return (
+                      <TableRow key={invite?.id ?? `${email}-${index}`}>
+                        <TableCell>{email || "-"}</TableCell>
+                        <TableCell className="font-mono">{token || "—"}</TableCell>
+                        <TableCell>
+                          <Badge variant={status === "accessed" ? "default" : "secondary"}>
+                            {status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right space-x-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => void copyCode(token)}
+                            type="button"
+                            disabled={!token}
+                          >
                             <Copy className="h-3 w-3 mr-1" />
-                          )}
-                          Full Invite
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                            Code
+                          </Button>
+
+                          <Button
+                            size="sm"
+                            onClick={() => void copyInvite(index)}
+                            type="button"
+                            disabled={!token || !email}
+                          >
+                            {copiedIndex === index ? (
+                              <Check className="h-3 w-3 mr-1" />
+                            ) : (
+                              <Copy className="h-3 w-3 mr-1" />
+                            )}
+                            Full Invite
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
 
                   {invites.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={4} className="text-center py-6 text-gray-500">
+                      <TableCell colSpan={4} className="text-center py-6 text-gray-500 dark:text-gray-400">
                         No vendors invited yet.
                       </TableCell>
                     </TableRow>

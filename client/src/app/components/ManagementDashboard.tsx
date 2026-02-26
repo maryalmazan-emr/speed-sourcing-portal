@@ -1,5 +1,4 @@
 // File: client/src/app/components/ManagementDashboard.tsx
-
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
@@ -38,10 +37,7 @@ interface ManagementDashboardProps {
   onSelectAuction: (auction: any) => void;
 }
 
-export function ManagementDashboard({
-  userRole,
-  onSelectAuction,
-}: ManagementDashboardProps) {
+export function ManagementDashboard({ userRole, onSelectAuction }: ManagementDashboardProps) {
   const [searchQuery, setSearchQuery] = useState("");
 
   // SECURITY
@@ -50,11 +46,11 @@ export function ManagementDashboard({
       <div className="container mx-auto px-4 py-8">
         <Card>
           <CardContent className="py-12 text-center">
-            <h2 className="text-2xl font-bold mb-2">Access Denied</h2>
-            <p className="text-gray-600">
+            <h2 className="text-2xl font-bold mb-2 text-gray-900 dark:text-white">Access Denied</h2>
+            <p className="text-gray-600 dark:text-gray-400">
               Only Product Owner and Global Administrators can access this page.
             </p>
-            <p className="text-sm text-gray-500 mt-2">
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
               Your role: {getRoleName(userRole)}
             </p>
           </CardContent>
@@ -82,7 +78,6 @@ export function ManagementDashboard({
     enableStorageWatch: true,
   });
 
-  // ✅ FIX: stabilize auctions reference (prevents exhaustive-deps warnings)
   const auctions = useMemo(() => auctionsData ?? [], [auctionsData]);
 
   /* ==================== INVITES (PER AUCTION) ==================== */
@@ -93,7 +88,6 @@ export function ManagementDashboard({
       auctions.map(async (auction: any) => {
         try {
           const invites = await apiGetInvites(auction.id);
-
           return (invites ?? []).map((invite: any) => ({
             ...invite,
             auction_title: auction.title,
@@ -116,7 +110,6 @@ export function ManagementDashboard({
     enableStorageWatch: true,
   });
 
-  // ✅ FIX: stabilize invites reference (prevents exhaustive-deps warnings)
   const invites = useMemo(() => invitesData ?? [], [invitesData]);
 
   const loading = auctionsLoading || invitesLoading;
@@ -153,9 +146,7 @@ export function ManagementDashboard({
   const copyInvite = async (invite: any) => {
     const token = invite?.invite_token ?? "";
     const email = invite?.vendor_email ?? "";
-    const url = `${window.location.origin}/?invite=${encodeURIComponent(
-      token
-    )}&email=${encodeURIComponent(email)}`;
+    const url = `${window.location.origin}/?invite=${encodeURIComponent(token)}&email=${encodeURIComponent(email)}`;
 
     await navigator.clipboard.writeText(
       `You're invited to participate in "${invite.auction_title}"
@@ -168,13 +159,12 @@ Invite Code: ${token}`
     toast.success("Full invitation copied");
   };
 
-  const getShortId = (id: string) => id?.substring(0, 8);
+  const getShortId = (id: string) => id?.substring(0, 8)?.toUpperCase();
 
-  /* ==================== UI ==================== */
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="text-xl font-semibold">
+        <div className="text-xl font-semibold text-gray-900 dark:text-white">
           Loading management dashboard…
         </div>
       </div>
@@ -186,10 +176,10 @@ Invite Code: ${token}`
       {/* Header */}
       <div className="mb-8 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <h1 className="text-3xl font-bold">Management Dashboard</h1>
-          <Badge className="bg-[#00573d] text-white">
-            {getRoleName(userRole)}
-          </Badge>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+            Management Dashboard
+          </h1>
+          <Badge className="bg-[#00573d] text-white">{getRoleName(userRole)}</Badge>
         </div>
 
         <div className="flex items-center gap-4">
@@ -219,19 +209,15 @@ Invite Code: ${token}`
 
       <Tabs defaultValue="auctions">
         <TabsList className="grid grid-cols-2 max-w-md">
-          <TabsTrigger value="auctions">
-            Auctions ({filteredAuctions.length})
-          </TabsTrigger>
-          <TabsTrigger value="invites">
-            Invites ({filteredInvites.length})
-          </TabsTrigger>
+          <TabsTrigger value="auctions">Auctions ({filteredAuctions.length})</TabsTrigger>
+          <TabsTrigger value="invites">Invites ({filteredInvites.length})</TabsTrigger>
         </TabsList>
 
         {/* Auctions */}
         <TabsContent value="auctions">
           {filteredAuctions.length === 0 ? (
             <Card>
-              <CardContent className="py-12 text-center text-gray-500">
+              <CardContent className="py-12 text-center text-gray-500 dark:text-gray-400">
                 <AlertCircle className="h-12 w-12 mx-auto mb-4" />
                 No auctions found
               </CardContent>
@@ -245,9 +231,21 @@ Invite Code: ${token}`
                   onClick={() => onSelectAuction(auction)}
                 >
                   <CardHeader>
-                    <CardTitle>{auction.title}</CardTitle>
-                    <CardDescription>
-                      ID: {getShortId(auction.id)}
+                    <CardTitle className="text-gray-900 dark:text-white">
+                      {auction.title}
+                    </CardTitle>
+
+                    {/* ✅ dark-mode safe ID chip */}
+                    <CardDescription className="mt-1">
+                      <span
+                        className="
+                          inline-block text-xs font-mono px-2 py-1 rounded border
+                          bg-gray-100 text-gray-900 border-gray-200
+                          dark:bg-gray-800 dark:text-gray-100 dark:border-gray-700
+                        "
+                      >
+                        ID: {getShortId(auction.id)}
+                      </span>
                     </CardDescription>
                   </CardHeader>
                 </Card>
@@ -260,14 +258,17 @@ Invite Code: ${token}`
         <TabsContent value="invites">
           <Card>
             <CardHeader>
-              <CardTitle>External Guest Invites</CardTitle>
-              <CardDescription>
+              <CardTitle className="text-gray-900 dark:text-white">
+                External Guest Invites
+              </CardTitle>
+              <CardDescription className="text-gray-600 dark:text-gray-400">
                 All vendor access codes across all auctions
               </CardDescription>
             </CardHeader>
+
             <CardContent>
               {filteredInvites.length === 0 ? (
-                <div className="text-center py-12 text-gray-500">
+                <div className="text-center py-12 text-gray-500 dark:text-gray-400">
                   <Users className="h-12 w-12 mx-auto mb-4" />
                   No invites found
                 </div>
@@ -282,17 +283,35 @@ Invite Code: ${token}`
                       <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
+
                   <TableBody>
                     {filteredInvites.map((invite: any) => (
                       <TableRow key={invite.id}>
-                        <TableCell>{invite.vendor_email}</TableCell>
-                        <TableCell className="font-mono">
+                        <TableCell className="text-gray-900 dark:text-gray-100">
+                          {invite.vendor_email}
+                        </TableCell>
+
+                        <TableCell
+                          className="font-mono text-gray-900 dark:text-gray-100"
+                        >
                           {invite.invite_token}
                         </TableCell>
-                        <TableCell>{invite.auction_title}</TableCell>
-                        <TableCell>
-                          <Badge>{invite.status}</Badge>
+
+                        <TableCell className="text-gray-700 dark:text-gray-300">
+                          {invite.auction_title}
                         </TableCell>
+
+                        <TableCell>
+                          <Badge
+                            className="
+                              bg-gray-100 text-gray-900 border border-gray-200
+                              dark:bg-gray-800 dark:text-gray-100 dark:border-gray-700
+                            "
+                          >
+                            {invite.status}
+                          </Badge>
+                        </TableCell>
+
                         <TableCell className="text-right space-x-2">
                           <Button
                             size="sm"

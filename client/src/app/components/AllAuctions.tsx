@@ -1,5 +1,4 @@
 // File: client/src/app/components/AllAuctions.tsx
-
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -20,7 +19,11 @@ import { apiGetAuctions } from "@/lib/api";
 import { hasGlobalAccess, canDelete, getRoleName } from "@/lib/adminAuth";
 import { toast } from "sonner";
 
-type UserRole = "product_owner" | "global_admin" | "internal_user" | "external_guest";
+type UserRole =
+  | "product_owner"
+  | "global_admin"
+  | "internal_user"
+  | "external_guest";
 
 type AuctionLike = {
   id: string;
@@ -42,12 +45,18 @@ interface AllAuctionsProps {
   userRole: UserRole;
 }
 
-export function AllAuctions({ onSelectAuction, adminEmail, userRole }: AllAuctionsProps) {
+export function AllAuctions({
+  onSelectAuction,
+  adminEmail,
+  userRole,
+}: AllAuctionsProps) {
   const hasGlobalView = hasGlobalAccess(userRole);
   const canDeleteAuctions = canDelete(userRole);
 
   const [auctions, setAuctions] = useState<AuctionLike[]>([]);
-  const [filter, setFilter] = useState<"all" | "active" | "scheduled" | "awarded">("all");
+  const [filter, setFilter] = useState<
+    "all" | "active" | "scheduled" | "awarded"
+  >("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
 
@@ -74,7 +83,10 @@ export function AllAuctions({ onSelectAuction, adminEmail, userRole }: AllAuctio
     }
   };
 
-  const handleDeleteAuction = (auctionTitle: string, e: MouseEvent<HTMLButtonElement>): void => {
+  const handleDeleteAuction = (
+    auctionTitle: string,
+    e: MouseEvent<HTMLButtonElement>
+  ): void => {
     e.stopPropagation();
 
     if (!canDeleteAuctions) {
@@ -88,10 +100,13 @@ export function AllAuctions({ onSelectAuction, adminEmail, userRole }: AllAuctio
 
     if (!confirmed) return;
 
-    toast.info("Deletion is disabled. All auctions are maintained for audit trail compliance.");
+    toast.info(
+      "Deletion is disabled. All auctions are maintained for audit trail compliance."
+    );
   };
 
-  const getShortId = (uuid: string): string => uuid.substring(0, 8).toUpperCase();
+  const getShortId = (uuid: string): string =>
+    uuid.substring(0, 8).toUpperCase();
 
   const getStatusBadge = (auction: AuctionLike) => {
     const now = new Date();
@@ -99,18 +114,34 @@ export function AllAuctions({ onSelectAuction, adminEmail, userRole }: AllAuctio
     const endsAt = new Date(auction.ends_at);
 
     if (auction.winner_vendor_email) {
-      return <Badge className="bg-[#00573d] text-white border-0">Awarded</Badge>;
+      return (
+        <Badge className="bg-[#00573d] text-white border-0">
+          Awarded
+        </Badge>
+      );
     }
 
     if (startsAt > now) {
-      return <Badge className="bg-[#9fa1a4] text-white border-0">Scheduled</Badge>;
+      return (
+        <Badge className="bg-[#9fa1a4] text-white border-0">
+          Scheduled
+        </Badge>
+      );
     }
 
     if (auction.status === "manually_closed" || endsAt < now) {
-      return <Badge className="bg-[#9fa1a4] text-white border-0">Closed</Badge>;
+      return (
+        <Badge className="bg-[#9fa1a4] text-white border-0">
+          Closed
+        </Badge>
+      );
     }
 
-    return <Badge className="bg-[#004b8d] text-white border-0">Active</Badge>;
+    return (
+      <Badge className="bg-[#004b8d] text-white border-0">
+        Active
+      </Badge>
+    );
   };
 
   const filteredAuctions = useMemo(() => {
@@ -118,7 +149,8 @@ export function AllAuctions({ onSelectAuction, adminEmail, userRole }: AllAuctio
       const now = new Date();
 
       if (filter === "awarded" && !auction.winner_vendor_email) return false;
-      if (filter === "scheduled" && new Date(auction.starts_at) <= now) return false;
+      if (filter === "scheduled" && new Date(auction.starts_at) <= now)
+        return false;
 
       if (
         filter === "active" &&
@@ -155,11 +187,16 @@ export function AllAuctions({ onSelectAuction, adminEmail, userRole }: AllAuctio
   }
 
   return (
-    <div className="container mx-auto px-4 py-8" style={{ maxWidth: "1180px" }}>
+    <div
+      className="container mx-auto px-4 py-8"
+      style={{ maxWidth: "1180px" }}
+    >
       <div className="mb-6">
-        <h1 className="text-3xl font-bold">{hasGlobalView ? "All Auctions" : "My Auctions"}</h1>
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+          {hasGlobalView ? "All Auctions" : "My Auctions"}
+        </h1>
 
-        <p className="text-gray-600 mt-1">
+        <p className="text-gray-600 dark:text-gray-400 mt-1">
           {hasGlobalView
             ? `${getRoleName(userRole)} — Viewing ALL auctions`
             : `Showing auctions created by ${adminEmail}`}
@@ -194,7 +231,9 @@ export function AllAuctions({ onSelectAuction, adminEmail, userRole }: AllAuctio
 
       {filteredAuctions.length === 0 ? (
         <Card>
-          <CardContent className="py-12 text-center text-gray-500">No auctions found</CardContent>
+          <CardContent className="py-12 text-center text-gray-500 dark:text-gray-400">
+            No auctions found
+          </CardContent>
         </Card>
       ) : (
         <div className="grid gap-4">
@@ -208,16 +247,35 @@ export function AllAuctions({ onSelectAuction, adminEmail, userRole }: AllAuctio
                 <div className="flex justify-between">
                   <div>
                     <div className="flex gap-2 mb-1">
-                      <span className="text-xs font-mono bg-gray-100 px-2 py-1 rounded">
+                      {/* ✅ FIXED AUCTION ID (DARK MODE SAFE) */}
+                      <span
+                        className="
+                          text-xs font-mono px-2 py-1 rounded border
+                          bg-gray-100 text-gray-900 border-gray-200
+                          dark:bg-gray-800 dark:text-gray-100 dark:border-gray-700
+                        "
+                      >
                         ID: {getShortId(auction.id)}
                       </span>
+
+                      {/* ✅ FIXED GROUP/SITE CHIP */}
                       {auction.group_site && (
-                        <span className="text-xs bg-gray-100 px-2 py-1 rounded">
+                        <span
+                          className="
+                            text-xs px-2 py-1 rounded border
+                            bg-gray-100 text-gray-900 border-gray-200
+                            dark:bg-gray-800 dark:text-gray-100 dark:border-gray-700
+                          "
+                        >
                           {auction.group_site}
                         </span>
                       )}
                     </div>
-                    <CardTitle>{auction.title}</CardTitle>
+
+                    <CardTitle className="text-gray-900 dark:text-white">
+                      {auction.title}
+                    </CardTitle>
+
                     <CardDescription className="mt-1 line-clamp-2">
                       {auction.description}
                     </CardDescription>
@@ -230,7 +288,12 @@ export function AllAuctions({ onSelectAuction, adminEmail, userRole }: AllAuctio
                         variant="outline"
                         size="sm"
                         className="text-red-600"
-                        onClick={(e) => handleDeleteAuction(auction.title ?? auction.id, e)}
+                        onClick={(e) =>
+                          handleDeleteAuction(
+                            auction.title ?? auction.id,
+                            e
+                          )
+                        }
                         type="button"
                       >
                         <Trash2 className="h-4 w-4" />
@@ -244,32 +307,50 @@ export function AllAuctions({ onSelectAuction, adminEmail, userRole }: AllAuctio
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                   {auction.requestor && (
                     <div>
-                      <span className="text-gray-500">Requestor</span>
-                      <div className="font-medium">{auction.requestor}</div>
+                      <span className="text-gray-500 dark:text-gray-400">
+                        Requestor
+                      </span>
+                      <div className="font-medium text-gray-900 dark:text-white">
+                        {auction.requestor}
+                      </div>
                     </div>
                   )}
 
                   <div>
-                    <span className="text-gray-500">Starts</span>
-                    <div className="font-medium">{new Date(auction.starts_at).toLocaleDateString()}</div>
+                    <span className="text-gray-500 dark:text-gray-400">
+                      Starts
+                    </span>
+                    <div className="font-medium text-gray-900 dark:text-white">
+                      {new Date(auction.starts_at).toLocaleDateString()}
+                    </div>
                   </div>
 
                   <div>
-                    <span className="text-gray-500">Ends</span>
-                    <div className="font-medium">{new Date(auction.ends_at).toLocaleDateString()}</div>
+                    <span className="text-gray-500 dark:text-gray-400">
+                      Ends
+                    </span>
+                    <div className="font-medium text-gray-900 dark:text-white">
+                      {new Date(auction.ends_at).toLocaleDateString()}
+                    </div>
                   </div>
 
                   {auction.product_details && (
                     <div>
-                      <span className="text-gray-500">Part Numbers & Qty</span>
-                      <div className="font-medium">{auction.product_details}</div>
+                      <span className="text-gray-500 dark:text-gray-400">
+                        Part Numbers & Qty
+                      </span>
+                      <div className="font-medium text-gray-900 dark:text-white">
+                        {auction.product_details}
+                      </div>
                     </div>
                   )}
 
                   {auction.winner_vendor_email && (
                     <div className="col-span-2">
-                      <span className="text-gray-500">Winner</span>
-                      <div className="flex items-center gap-1 font-medium">
+                      <span className="text-gray-500 dark:text-gray-400">
+                        Winner
+                      </span>
+                      <div className="flex items-center gap-1 font-medium text-gray-900 dark:text-white">
                         <Crown className="h-3 w-3 text-yellow-500" />
                         {auction.winner_vendor_email}
                       </div>
@@ -284,4 +365,3 @@ export function AllAuctions({ onSelectAuction, adminEmail, userRole }: AllAuctio
     </div>
   );
 }
-``
