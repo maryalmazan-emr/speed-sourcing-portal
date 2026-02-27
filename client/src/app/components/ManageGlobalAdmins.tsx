@@ -57,6 +57,7 @@ export function ManageGlobalAdmins({ onBack }: ManageGlobalAdminsProps) {
       );
       setAdmins(filteredAdmins);
     } catch (error) {
+      // eslint-disable-next-line no-console
       console.error("Error loading admins:", error);
       toast.error("Failed to load administrators");
     } finally {
@@ -93,6 +94,7 @@ export function ManageGlobalAdmins({ onBack }: ManageGlobalAdminsProps) {
 
       await loadAdmins();
     } catch (error: any) {
+      // eslint-disable-next-line no-console
       console.error("Error creating admin:", error);
       toast.error(error?.message || "Failed to create administrator");
     } finally {
@@ -118,10 +120,17 @@ export function ManageGlobalAdmins({ onBack }: ManageGlobalAdminsProps) {
     }
   };
 
+  const getDisplayName = (admin: any) => {
+    // Defensive: your table was showing company_name, but some models use "name"
+    return admin?.company_name || admin?.name || admin?.full_name || "—";
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-6 flex items-center justify-center">
-        <div className="text-gray-600 dark:text-gray-300">Loading administrators...</div>
+        <div className="text-gray-600 dark:text-gray-300">
+          Loading administrators...
+        </div>
       </div>
     );
   }
@@ -152,13 +161,16 @@ export function ManageGlobalAdmins({ onBack }: ManageGlobalAdminsProps) {
 
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild>
-              <Button className="bg-[#004b8d] hover:bg-[#003d73] text-white" type="button">
+              <Button
+                className="bg-[#004b8d] hover:bg-[#003d73] text-white"
+                type="button"
+              >
                 <UserPlus className="h-4 w-4 mr-2" />
                 Add Global Administrator
               </Button>
             </DialogTrigger>
 
-            {/* ✅ fix invalid max-w class + dark mode text safety */}
+            {/* ✅ Tailwind-safe max width */}
             <DialogContent className="sm:max-w-130">
               <DialogHeader>
                 <DialogTitle className="text-gray-900 dark:text-white">
@@ -204,7 +216,11 @@ export function ManageGlobalAdmins({ onBack }: ManageGlobalAdminsProps) {
               </div>
 
               <DialogFooter>
-                <Button variant="outline" onClick={() => setDialogOpen(false)} type="button">
+                <Button
+                  variant="outline"
+                  onClick={() => setDialogOpen(false)}
+                  type="button"
+                >
                   Cancel
                 </Button>
                 <Button
@@ -228,7 +244,9 @@ export function ManageGlobalAdmins({ onBack }: ManageGlobalAdminsProps) {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-purple-600">{productOwners.length}</div>
+              <div className="text-3xl font-bold text-purple-600">
+                {productOwners.length}
+              </div>
             </CardContent>
           </Card>
 
@@ -239,7 +257,9 @@ export function ManageGlobalAdmins({ onBack }: ManageGlobalAdminsProps) {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-blue-600">{globalAdmins.length}</div>
+              <div className="text-3xl font-bold text-blue-600">
+                {globalAdmins.length}
+              </div>
             </CardContent>
           </Card>
         </div>
@@ -268,22 +288,25 @@ export function ManageGlobalAdmins({ onBack }: ManageGlobalAdminsProps) {
               <TableBody>
                 {admins.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={4} className="text-center text-gray-500 dark:text-gray-400">
+                    <TableCell
+                      colSpan={4}
+                      className="text-center text-gray-500 dark:text-gray-400"
+                    >
                       No administrators found
                     </TableCell>
                   </TableRow>
                 ) : (
-                  admins.map((admin) => (
+                  admins.map((admin: any) => (
                     <TableRow key={admin.id}>
                       <TableCell className="font-medium text-gray-900 dark:text-gray-100">
-                        {admin.company_name}
+                        {getDisplayName(admin)}
                       </TableCell>
                       <TableCell className="text-gray-700 dark:text-gray-300">
                         {admin.email}
                       </TableCell>
                       <TableCell>{getRoleBadge(admin.role)}</TableCell>
                       <TableCell className="text-gray-700 dark:text-gray-300">
-                        {formatCreatedAt((admin as any).created_at)}
+                        {formatCreatedAt(admin.created_at)}
                       </TableCell>
                     </TableRow>
                   ))

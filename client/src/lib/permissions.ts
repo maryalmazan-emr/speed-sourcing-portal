@@ -4,6 +4,12 @@ import type { View } from "@/lib/view";
 
 export type AppRole = "admin" | "vendor";
 
+/**
+ * IMPORTANT SEMANTICS:
+ * - Only "product_owner" and "global_admin" are TRUE ADMINS.
+ * - "internal_user" is an internal user (buyer) but NOT an admin.
+ * - "external_guest" is not an internal user (vendor-side access is handled by AppRole="vendor").
+ */
 export type AdminRole =
   | "product_owner"
   | "global_admin"
@@ -12,11 +18,11 @@ export type AdminRole =
 
 export type Permissions = {
   // High-level capabilities
-  canCreateAuction: boolean;
-  canAccessManagementDashboard: boolean;
-  canUseMessagingCenter: boolean;
-  canAccessAccounts: boolean;
-  canManageGlobalAdmins: boolean;
+  canCreateAuction: boolean; // internal buyers can create; vendors cannot
+  canAccessManagementDashboard: boolean; // admins only (PO + GA)
+  canUseMessagingCenter: boolean; // admins only (PO + GA)
+  canAccessAccounts: boolean; // admins only (PO + GA)
+  canManageGlobalAdmins: boolean; // product_owner only
 
   // Navigation/view access
   canAccessView: (view: View) => boolean;
@@ -26,24 +32,24 @@ export type Permissions = {
 };
 
 export function getPermissions(role: AppRole, adminRole?: AdminRole): Permissions {
-  const isPrivilegedAdmin =
-    adminRole === "product_owner" || adminRole === "global_admin";
+  const isTrueAdmin =
+    role === "admin" && (adminRole === "product_owner" || adminRole === "global_admin");
 
-  // ✅ Your requirement: internal_user CAN create auctions, vendors cannot.
-  const canCreateAuction =
-    role === "admin" &&
-    (adminRole === "product_owner" ||
-      adminRole === "global_admin" ||
-      adminRole === "internal_user");
+  const isInternalUser = role === "admin" && adminRole === "internal_user";
 
-  const canAccessManagementDashboard = role === "admin" && isPrivilegedAdmin;
-  const canUseMessagingCenter = role === "admin" && isPrivilegedAdmin;
-  const canAccessAccounts = role === "admin" && isPrivilegedAdmin;
+  // ✅ Internal users can create auctions; vendors cannot.
+  // ✅ PO + GA can also create (if your flow allows it).
+  const canCreateAuction = role === "admin" && (isTrueAdmin || isInternalUser);
+
+  // ✅ Admin-only pages (PO + GA)
+  const canAccessManagementDashboard = isTrueAdmin;
+  const canUseMessagingCenter = isTrueAdmin;
+  const canAccessAccounts = isTrueAdmin;
+
+  // ✅ Only Product Owner can manage global admins (even if hidden from menu)
   const canManageGlobalAdmins = role === "admin" && adminRole === "product_owner";
 
-  const auctionsLabel: "All Auctions" | "My Auctions" = isPrivilegedAdmin
-    ? "All Auctions"
-    : "My Auctions";
+  const auctionsLabel: "All Auctions" | "My Auctions" = isTrueAdmin ? "All Auctions" : "My Auctions";
 
   const canAccessView = (view: View): boolean => {
     // Vendor-only views
@@ -51,21 +57,28 @@ export function getPermissions(role: AppRole, adminRole?: AdminRole): Permission
       return role === "vendor";
     }
 
-    // Admin-only views
-    if (view === "admin-login" || view === "admin-setup" || view === "admin-dashboard") {
+    // Admin-side authentication views (internal portal)
+    if (view === "admin-login" || view === "admin-setup") {
       return role === "admin";
     }
 
-    // Everyone views
+    // Admin dashboard in your app is effectively the INTERNAL user workspace.
+    // Internal users can access it, but they are not "admins" in terms of privileges.
+    if (view === "admin-dashboard") {
+      return role === "admin";
+    }
+
+    // Everyone
     if (view === "faq") return true;
 
-    // Debug page: allow admins only (you can change this if you want)
+    // Debug: admins/internal portal only
     if (view === "debug-storage") return role === "admin";
 
-    // Common admin list page (content filtered inside component for internal_user)
+    // Auctions list page exists for all internal portal users,
+    // but content is filtered inside the component (My vs All).
     if (view === "all-auctions") return role === "admin";
 
-    // Privileged-only pages
+    // True-admin-only pages
     if (view === "management-dashboard") return canAccessManagementDashboard;
     if (view === "messaging-center") return canUseMessagingCenter;
     if (view === "accounts") return canAccessAccounts;

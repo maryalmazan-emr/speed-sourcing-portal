@@ -1,5 +1,4 @@
 // File: client/src/app/components/Header.tsx
-
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -11,17 +10,17 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from "@/app/components/ui/dropdown-menu";
-import { Menu, HelpCircle, RotateCcw, Gavel } from "lucide-react";
+import { Menu, HelpCircle, Gavel, LogOut } from "lucide-react";
 import logo from "@/assets/logo.png";
 import { getRoleName } from "@/lib/adminAuth";
 import { ThemeToggle } from "@/app/components/ThemeToggle";
 import { NotificationBell } from "@/app/components/NotificationBell";
-import { cn } from "@/lib/utils";
 import type { View } from "@/lib/view";
-import { getViewFromHash } from "@/lib/view";
 import { getPermissions } from "@/lib/permissions";
 
 interface Auction {
+  id?: string;
+  title?: string | null;
   starts_at?: string;
   ends_at?: string;
   winner_vendor_email?: string | null;
@@ -30,8 +29,8 @@ interface Auction {
 interface HeaderProps {
   auction: Auction | null;
   role: "admin" | "vendor";
+  view: View;
   onNavigate: (view: View) => void;
-  onResetAuction?: () => void;
   onCreateAuction?: () => void;
   onAdminLogout?: () => void;
   currentUser?: string;
@@ -42,29 +41,50 @@ interface HeaderProps {
 export function Header({
   auction,
   role,
+  view,
   onNavigate,
-  onResetAuction,
   onCreateAuction,
   onAdminLogout,
   currentUser,
   adminRole,
   vendorEmail,
 }: HeaderProps) {
+  const perms = useMemo(() => getPermissions(role, adminRole), [role, adminRole]);
+
+  // ✅ Only PO + GA are true admins
+  const isTrueAdmin =
+    role === "admin" &&
+    (adminRole === "product_owner" || adminRole === "global_admin");
+
+  // ✅ Show auction context ONLY on auction views
+  const shouldShowAuctionContext =
+    !!auction && (view === "admin-dashboard" || view === "vendor-dashboard");
+
+  // Presence-based animation (smooth in/out)
+  const [renderContext, setRenderContext] = useState(false);
+  const [contextVisible, setContextVisible] = useState(false);
+
+  // Timer state (only runs when context is shown)
   const [timeLeft, setTimeLeft] = useState("");
   const [isWarning, setIsWarning] = useState(false);
 
-  const [activeView, setActiveView] = useState<View | null>(() => getViewFromHash());
-
   useEffect(() => {
-    const onHash = () => setActiveView(getViewFromHash());
-    window.addEventListener("hashchange", onHash);
-    return () => window.removeEventListener("hashchange", onHash);
-  }, []);
+    if (shouldShowAuctionContext) {
+      setRenderContext(true);
+      // next tick -> animate in
+      requestAnimationFrame(() => setContextVisible(true));
+      return;
+    }
 
-  const perms = useMemo(() => getPermissions(role, adminRole), [role, adminRole]);
+    // animate out then unmount
+    setContextVisible(false);
+    const t = window.setTimeout(() => setRenderContext(false), 220);
+    return () => window.clearTimeout(t);
+  }, [shouldShowAuctionContext]);
 
+  // ---------------- Auction Timer (only when context shown) ----------------
   useEffect(() => {
-    if (!auction?.ends_at) {
+    if (!renderContext || !auction?.ends_at) {
       setTimeLeft("");
       setIsWarning(false);
       return;
@@ -118,19 +138,25 @@ export function Header({
     };
 
     updateTimer();
-    const interval = setInterval(updateTimer, 1000);
-    return () => clearInterval(interval);
-  }, [auction]);
+    const interval = window.setInterval(updateTimer, 1000);
+    return () => window.clearInterval(interval);
+  }, [renderContext, auction?.starts_at, auction?.ends_at, auction?.winner_vendor_email]);
 
-  const itemClass = (view: View) =>
-    cn("cursor-pointer", activeView === view && "bg-gray-100 dark:bg-gray-700 font-medium");
+  const roleLabel =
+    role === "vendor"
+      ? "External Guest"
+      : isTrueAdmin
+      ? getRoleName(adminRole!)
+      : "Internal User";
+
+  const auctionTitle =
+    (auction?.title && String(auction.title).trim()) ||
+    (auction?.id ? `Auction ${String(auction.id).substring(0, 8).toUpperCase()}` : "Auction");
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-white dark:bg-gray-800 shadow-sm">
-      <div
-        className="container mx-auto px-4 py-4 flex items-center justify-between"
-        style={{ maxWidth: "1180px" }}
-      >
+      <div className="container mx-auto px-4 py-4 flex items-center justify-between">
+        {/* Logo */}
         <div className="flex items-center gap-4">
           <img
             src={logo}
@@ -145,34 +171,66 @@ export function Header({
           </span>
         </div>
 
+        {/* ✅ Breadcrumb + Timer (only when viewing an auction) */}
         <div className="flex-1 flex justify-center">
-          {timeLeft && (
+          {renderContext ? (
             <div
-              className={`px-6 py-2 rounded-md font-mono text-base font-semibold ${
-                timeLeft === "Winner selected"
-                  ? "bg-[#00573d] text-white"
-                  : timeLeft === "Auction ended" || timeLeft === "Auction not started"
-                  ? "bg-gray-100/50 dark:bg-gray-700/50 text-gray-700 dark:text-gray-300 border"
-                  : isWarning
-                  ? "bg-[#d4183d] text-white animate-pulse"
-                  : "bg-[#004b8d] text-white"
-              }`}
+              className={[
+                "flex items-center gap-3",
+                "transition-all duration-200 ease-out",
+                contextVisible ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-1",
+              ].join(" ")}
             >
-              {timeLeft === "Winner selected"
-                ? "Winner Selected"
-                : timeLeft === "Auction ended"
-                ? "Auction Ended"
-                : timeLeft === "Auction not started"
-                ? "Auction Not Started"
-                : `Time left: ${timeLeft}`}
+              {/* Breadcrumb */}
+              <div
+                className="
+                  px-4 py-2 rounded-md border
+                  bg-gray-50 text-gray-900 border-gray-200
+                  dark:bg-gray-900/40 dark:text-gray-100 dark:border-gray-700
+                  text-sm font-medium
+                "
+                title={auctionTitle}
+              >
+                Viewing auction:{" "}
+                <span className="font-semibold">{auctionTitle}</span>
+              </div>
+
+              {/* Timer chip */}
+              {timeLeft ? (
+                <div
+                  className={`px-4 py-2 rounded-md font-mono text-sm font-semibold ${
+                    timeLeft === "Winner selected"
+                      ? "bg-[#00573d] text-white"
+                      : timeLeft === "Auction ended" || timeLeft === "Auction not started"
+                      ? "bg-gray-100/50 dark:bg-gray-700/50 text-gray-700 dark:text-gray-300 border"
+                      : isWarning
+                      ? "bg-[#d4183d] text-white animate-pulse"
+                      : "bg-[#004b8d] text-white"
+                  }`}
+                >
+                  {timeLeft === "Winner selected"
+                    ? "Winner Selected"
+                    : timeLeft === "Auction ended"
+                    ? "Auction Ended"
+                    : timeLeft === "Auction not started"
+                    ? "Auction Not Started"
+                    : `Time left: ${timeLeft}`}
+                </div>
+              ) : null}
             </div>
-          )}
+          ) : null}
         </div>
 
+        {/* Actions */}
         <div className="flex items-center gap-2">
           <ThemeToggle />
 
-          <NotificationBell vendorEmail={vendorEmail} adminEmail={currentUser} role={role} adminRole={adminRole} />
+          <NotificationBell
+            vendorEmail={vendorEmail}
+            adminEmail={currentUser}
+            role={role}
+            adminRole={adminRole}
+          />
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -183,112 +241,97 @@ export function Header({
             </DropdownMenuTrigger>
 
             <DropdownMenuContent align="end" className="w-56">
+              {/* Vendor menu */}
               {role === "vendor" && (
                 <>
-                  <DropdownMenuItem
-                    className={itemClass("vendor-dashboard")}
-                    onClick={() => onNavigate("vendor-dashboard")}
-                  >
+                  <DropdownMenuItem onClick={() => onNavigate("vendor-dashboard")}>
                     <Gavel className="h-4 w-4 mr-2" />
                     Auction
                   </DropdownMenuItem>
 
-                  <DropdownMenuItem className={itemClass("faq")} onClick={() => onNavigate("faq")}>
+                  <DropdownMenuItem onClick={() => onNavigate("faq")}>
                     <HelpCircle className="h-4 w-4 mr-2" />
                     FAQ
                   </DropdownMenuItem>
                 </>
               )}
 
-              {role === "admin" && (
+              {/* True Admin menu (PO + GA): ONLY 4 items + Logout */}
+              {role === "admin" && isTrueAdmin && (
                 <>
-                  <DropdownMenuItem
-                    className={itemClass("all-auctions")}
-                    onClick={() => onNavigate("all-auctions")}
-                  >
+                  <DropdownMenuItem onClick={() => onNavigate("all-auctions")}>
+                    📋 All Auctions
+                  </DropdownMenuItem>
+
+                  <DropdownMenuItem onClick={() => onNavigate("management-dashboard")}>
+                    📊 Management Dashboard
+                  </DropdownMenuItem>
+
+                  <DropdownMenuItem onClick={() => onNavigate("messaging-center")}>
+                    💬 Messaging Center
+                  </DropdownMenuItem>
+
+                  <DropdownMenuItem onClick={() => onNavigate("accounts")}>
+                    👥 All Accounts
+                  </DropdownMenuItem>
+
+                  {onAdminLogout ? (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={onAdminLogout}>
+                        <LogOut className="h-4 w-4 mr-2" />
+                        Logout
+                      </DropdownMenuItem>
+                    </>
+                  ) : null}
+                </>
+              )}
+
+              {/* Internal user menu (NOT admin): limited items + Logout */}
+              {role === "admin" && !isTrueAdmin && (
+                <>
+                  <DropdownMenuItem onClick={() => onNavigate("all-auctions")}>
                     📋 {perms.auctionsLabel}
                   </DropdownMenuItem>
 
-                  {perms.canCreateAuction && (
-                    <DropdownMenuItem onClick={() => onCreateAuction?.()}>🆕 Create New Auction</DropdownMenuItem>
-                  )}
+                  {perms.canCreateAuction ? (
+                    <DropdownMenuItem onClick={() => onCreateAuction?.()}>
+                      🆕 Create New Auction
+                    </DropdownMenuItem>
+                  ) : null}
 
                   <DropdownMenuSeparator />
 
-                  {perms.canAccessManagementDashboard && (
-                    <DropdownMenuItem
-                      className={itemClass("management-dashboard")}
-                      onClick={() => onNavigate("management-dashboard")}
-                    >
-                      📊 Management Dashboard
-                    </DropdownMenuItem>
-                  )}
-
-                  {perms.canUseMessagingCenter && (
-                    <DropdownMenuItem
-                      className={itemClass("messaging-center")}
-                      onClick={() => onNavigate("messaging-center")}
-                    >
-                      💬 Messaging Center
-                    </DropdownMenuItem>
-                  )}
-
-                  {perms.canAccessAccounts && (
-                    <DropdownMenuItem className={itemClass("accounts")} onClick={() => onNavigate("accounts")}>
-                      👥 All Accounts
-                    </DropdownMenuItem>
-                  )}
-
-                  {perms.canManageGlobalAdmins && (
-                    <DropdownMenuItem
-                      className={itemClass("manage-global-admins")}
-                      onClick={() => onNavigate("manage-global-admins")}
-                    >
-                      🔐 Manage Global Administrators
-                    </DropdownMenuItem>
-                  )}
-
-                  <DropdownMenuSeparator />
-
-                  <DropdownMenuItem className={itemClass("faq")} onClick={() => onNavigate("faq")}>
+                  <DropdownMenuItem onClick={() => onNavigate("faq")}>
                     <HelpCircle className="h-4 w-4 mr-2" />
                     FAQ
                   </DropdownMenuItem>
 
-                  {onResetAuction && (
+                  {onAdminLogout ? (
                     <>
                       <DropdownMenuSeparator />
-                      <DropdownMenuItem onClick={onResetAuction}>
-                        <RotateCcw className="h-4 w-4 mr-2" />
-                        Exit Current Auction
+                      <DropdownMenuItem onClick={onAdminLogout}>
+                        <LogOut className="h-4 w-4 mr-2" />
+                        Logout
                       </DropdownMenuItem>
                     </>
-                  )}
-
-                  {onAdminLogout && (
-                    <>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem onClick={onAdminLogout}>🚪 Logout</DropdownMenuItem>
-                    </>
-                  )}
+                  ) : null}
                 </>
               )}
             </DropdownMenuContent>
           </DropdownMenu>
 
+          {/* Role chip */}
           <div className="text-xs font-medium text-white px-3 py-1 bg-[#00573d] rounded-md">
-            {role === "admin"
-              ? adminRole
-                ? getRoleName(adminRole)
-                : "Internal User"
-              : "External Guest"}
+            {roleLabel}
           </div>
 
-          {currentUser && (
+          {/* Current user chip */}
+          {currentUser ? (
             <div className="text-xs font-medium text-gray-700 dark:text-gray-200 px-3 py-1 bg-gray-100 dark:bg-gray-700 rounded-md">
               {currentUser}
             </div>
-          )}
+          ) : null}
         </div>
       </div>
     </header>

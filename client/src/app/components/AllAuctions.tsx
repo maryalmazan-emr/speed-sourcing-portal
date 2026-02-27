@@ -19,11 +19,7 @@ import { apiGetAuctions } from "@/lib/api";
 import { hasGlobalAccess, canDelete, getRoleName } from "@/lib/adminAuth";
 import { toast } from "sonner";
 
-type UserRole =
-  | "product_owner"
-  | "global_admin"
-  | "internal_user"
-  | "external_guest";
+type UserRole = "product_owner" | "global_admin" | "internal_user" | "external_guest";
 
 type AuctionLike = {
   id: string;
@@ -31,7 +27,11 @@ type AuctionLike = {
   description?: string | null;
   group_site?: string | null;
   requestor?: string | null;
+
+  // creator info (PO + GA only should see)
+  created_by_name?: string | null;
   created_by_email?: string | null;
+
   starts_at: string;
   ends_at: string;
   status?: string | null;
@@ -45,18 +45,14 @@ interface AllAuctionsProps {
   userRole: UserRole;
 }
 
-export function AllAuctions({
-  onSelectAuction,
-  adminEmail,
-  userRole,
-}: AllAuctionsProps) {
+export function AllAuctions({ onSelectAuction, adminEmail, userRole }: AllAuctionsProps) {
   const hasGlobalView = hasGlobalAccess(userRole);
   const canDeleteAuctions = canDelete(userRole);
 
+  const canSeeCreator = userRole === "product_owner" || userRole === "global_admin";
+
   const [auctions, setAuctions] = useState<AuctionLike[]>([]);
-  const [filter, setFilter] = useState<
-    "all" | "active" | "scheduled" | "awarded"
-  >("all");
+  const [filter, setFilter] = useState<"all" | "active" | "scheduled" | "awarded">("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
 
@@ -76,6 +72,7 @@ export function AllAuctions({
 
       setAuctions(visibleAuctions);
     } catch (error) {
+      // eslint-disable-next-line no-console
       console.error("Error loading auctions:", error);
       toast.error("Failed to load auctions");
     } finally {
@@ -83,10 +80,7 @@ export function AllAuctions({
     }
   };
 
-  const handleDeleteAuction = (
-    auctionTitle: string,
-    e: MouseEvent<HTMLButtonElement>
-  ): void => {
+  const handleDeleteAuction = (auctionTitle: string, e: MouseEvent<HTMLButtonElement>): void => {
     e.stopPropagation();
 
     if (!canDeleteAuctions) {
@@ -100,13 +94,10 @@ export function AllAuctions({
 
     if (!confirmed) return;
 
-    toast.info(
-      "Deletion is disabled. All auctions are maintained for audit trail compliance."
-    );
+    toast.info("Deletion is disabled. All auctions are maintained for audit trail compliance.");
   };
 
-  const getShortId = (uuid: string): string =>
-    uuid.substring(0, 8).toUpperCase();
+  const getShortId = (uuid: string): string => uuid.substring(0, 8).toUpperCase();
 
   const getStatusBadge = (auction: AuctionLike) => {
     const now = new Date();
@@ -114,34 +105,18 @@ export function AllAuctions({
     const endsAt = new Date(auction.ends_at);
 
     if (auction.winner_vendor_email) {
-      return (
-        <Badge className="bg-[#00573d] text-white border-0">
-          Awarded
-        </Badge>
-      );
+      return <Badge className="bg-[#00573d] text-white border-0">Awarded</Badge>;
     }
 
     if (startsAt > now) {
-      return (
-        <Badge className="bg-[#9fa1a4] text-white border-0">
-          Scheduled
-        </Badge>
-      );
+      return <Badge className="bg-[#9fa1a4] text-white border-0">Scheduled</Badge>;
     }
 
     if (auction.status === "manually_closed" || endsAt < now) {
-      return (
-        <Badge className="bg-[#9fa1a4] text-white border-0">
-          Closed
-        </Badge>
-      );
+      return <Badge className="bg-[#9fa1a4] text-white border-0">Closed</Badge>;
     }
 
-    return (
-      <Badge className="bg-[#004b8d] text-white border-0">
-        Active
-      </Badge>
-    );
+    return <Badge className="bg-[#004b8d] text-white border-0">Active</Badge>;
   };
 
   const filteredAuctions = useMemo(() => {
@@ -149,8 +124,7 @@ export function AllAuctions({
       const now = new Date();
 
       if (filter === "awarded" && !auction.winner_vendor_email) return false;
-      if (filter === "scheduled" && new Date(auction.starts_at) <= now)
-        return false;
+      if (filter === "scheduled" && new Date(auction.starts_at) <= now) return false;
 
       if (
         filter === "active" &&
@@ -167,10 +141,12 @@ export function AllAuctions({
         return (
           getShortId(auction.id).toLowerCase().includes(q) ||
           auction.id.toLowerCase().includes(q) ||
-          auction.title?.toLowerCase().includes(q) ||
-          auction.description?.toLowerCase().includes(q) ||
-          auction.group_site?.toLowerCase().includes(q) ||
-          auction.requestor?.toLowerCase().includes(q)
+          (auction.title ?? "").toLowerCase().includes(q) ||
+          (auction.description ?? "").toLowerCase().includes(q) ||
+          (auction.group_site ?? "").toLowerCase().includes(q) ||
+          (auction.requestor ?? "").toLowerCase().includes(q) ||
+          (auction.created_by_name ?? "").toLowerCase().includes(q) ||
+          (auction.created_by_email ?? "").toLowerCase().includes(q)
         );
       }
 
@@ -187,10 +163,7 @@ export function AllAuctions({
   }
 
   return (
-    <div
-      className="container mx-auto px-4 py-8"
-      style={{ maxWidth: "1180px" }}
-    >
+    <div className="container mx-auto px-4 py-8" style={{ maxWidth: "1180px" }}>
       <div className="mb-6">
         <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
           {hasGlobalView ? "All Auctions" : "My Auctions"}
@@ -247,7 +220,6 @@ export function AllAuctions({
                 <div className="flex justify-between">
                   <div>
                     <div className="flex gap-2 mb-1">
-                      {/* ✅ FIXED AUCTION ID (DARK MODE SAFE) */}
                       <span
                         className="
                           text-xs font-mono px-2 py-1 rounded border
@@ -258,7 +230,6 @@ export function AllAuctions({
                         ID: {getShortId(auction.id)}
                       </span>
 
-                      {/* ✅ FIXED GROUP/SITE CHIP */}
                       {auction.group_site && (
                         <span
                           className="
@@ -272,9 +243,7 @@ export function AllAuctions({
                       )}
                     </div>
 
-                    <CardTitle className="text-gray-900 dark:text-white">
-                      {auction.title}
-                    </CardTitle>
+                    <CardTitle className="text-gray-900 dark:text-white">{auction.title}</CardTitle>
 
                     <CardDescription className="mt-1 line-clamp-2">
                       {auction.description}
@@ -288,12 +257,7 @@ export function AllAuctions({
                         variant="outline"
                         size="sm"
                         className="text-red-600"
-                        onClick={(e) =>
-                          handleDeleteAuction(
-                            auction.title ?? auction.id,
-                            e
-                          )
-                        }
+                        onClick={(e) => handleDeleteAuction(auction.title ?? auction.id, e)}
                         type="button"
                       >
                         <Trash2 className="h-4 w-4" />
@@ -307,38 +271,45 @@ export function AllAuctions({
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                   {auction.requestor && (
                     <div>
-                      <span className="text-gray-500 dark:text-gray-400">
-                        Requestor
-                      </span>
+                      <span className="text-gray-500 dark:text-gray-400">Requestor</span>
                       <div className="font-medium text-gray-900 dark:text-white">
                         {auction.requestor}
                       </div>
                     </div>
                   )}
 
+                  {/* ✅ PO + GA ONLY: show internal creator name + email */}
+                  {canSeeCreator && (auction.created_by_name || auction.created_by_email) && (
+                    <div className="col-span-2">
+                      <span className="text-gray-500 dark:text-gray-400">Created By</span>
+                      <div className="font-medium text-gray-900 dark:text-white">
+                        {auction.created_by_name ?? "—"}
+                      </div>
+                      {auction.created_by_email && (
+                        <div className="text-xs font-mono text-gray-700 dark:text-gray-300">
+                          {auction.created_by_email}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   <div>
-                    <span className="text-gray-500 dark:text-gray-400">
-                      Starts
-                    </span>
+                    <span className="text-gray-500 dark:text-gray-400">Starts</span>
                     <div className="font-medium text-gray-900 dark:text-white">
                       {new Date(auction.starts_at).toLocaleDateString()}
                     </div>
                   </div>
 
                   <div>
-                    <span className="text-gray-500 dark:text-gray-400">
-                      Ends
-                    </span>
+                    <span className="text-gray-500 dark:text-gray-400">Ends</span>
                     <div className="font-medium text-gray-900 dark:text-white">
                       {new Date(auction.ends_at).toLocaleDateString()}
                     </div>
                   </div>
 
                   {auction.product_details && (
-                    <div>
-                      <span className="text-gray-500 dark:text-gray-400">
-                        Part Numbers & Qty
-                      </span>
+                    <div className="col-span-2">
+                      <span className="text-gray-500 dark:text-gray-400">Part Numbers & Qty</span>
                       <div className="font-medium text-gray-900 dark:text-white">
                         {auction.product_details}
                       </div>
@@ -347,9 +318,7 @@ export function AllAuctions({
 
                   {auction.winner_vendor_email && (
                     <div className="col-span-2">
-                      <span className="text-gray-500 dark:text-gray-400">
-                        Winner
-                      </span>
+                      <span className="text-gray-500 dark:text-gray-400">Winner</span>
                       <div className="flex items-center gap-1 font-medium text-gray-900 dark:text-white">
                         <Crown className="h-3 w-3 text-yellow-500" />
                         {auction.winner_vendor_email}

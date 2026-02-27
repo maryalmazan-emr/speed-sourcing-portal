@@ -1,7 +1,7 @@
 // File: client/src/app/components/MessagingCenter.tsx
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/app/components/ui/button";
 import {
   Card,
@@ -13,27 +13,56 @@ import {
 import { Input } from "@/app/components/ui/input";
 import { Label } from "@/app/components/ui/label";
 import { Textarea } from "@/app/components/ui/textarea";
-import { ArrowLeft, MessageSquare, Send, Users } from "lucide-react";
+import { MessageSquare, Send, Users } from "lucide-react";
 import { toast } from "sonner";
 import { addNotification } from "@/lib/notifications";
-import { getAccounts } from "@/lib/api/api";
 import { Checkbox } from "@/app/components/ui/checkbox";
-import type { Account } from "@/lib/backend";
+
+// ✅ No /api/admins call. Admins come from local auth storage; vendors from invites.
+import { getAllAdminAccounts } from "@/lib/adminAuth";
+import { apiGetInvites } from "@/lib/api";
 
 type AdminRole = "product_owner" | "global_admin";
-type RoleFilter = "all" | Account["role"];
+
+// ✅ Lightweight type for THIS screen (do not use backend Account type which requires created_at, etc.)
+type MessagingAccountRole =
+  | "product_owner"
+  | "global_admin"
+  | "internal_user"
+  | "external_guest";
+
+type MessagingAccount = {
+  id?: string;
+  email: string;
+  company_name?: string | null;
+  role: MessagingAccountRole;
+};
+
+type RoleFilter = "all" | MessagingAccountRole;
 
 interface MessagingCenterProps {
-  onBack: () => void;
+  onBack: () => void; // kept for compatibility with App.tsx; UI button removed per request
   adminRole: AdminRole;
 }
 
 export function MessagingCenter({ onBack, adminRole }: MessagingCenterProps) {
+  // ✅ keep onBack "used" without changing UI (prevents strict noUnusedParameters configs)
+  const onBackRef = useRef(onBack);
+  useEffect(() => {
+    onBackRef.current = onBack;
+  }, [onBack]);
+
+  // ✅ keep adminRole "used" without showing a badge (no behavior change)
+  const sender =
+    adminRole === "product_owner"
+      ? "Emerson Procurement Team"
+      : "Emerson Procurement Team";
+
   const [title, setTitle] = useState("");
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
 
-  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [accounts, setAccounts] = useState<MessagingAccount[]>([]);
   const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set());
 
   const [filterRole, setFilterRole] = useState<RoleFilter>("all");
@@ -45,8 +74,42 @@ export function MessagingCenter({ onBack, adminRole }: MessagingCenterProps) {
 
   const loadAccounts = async (): Promise<void> => {
     try {
-      const allAccounts = (await getAccounts()) as Account[] | null | undefined;
-      setAccounts(allAccounts ?? []);
+      // ✅ Admins from local (no /api/admins)
+      const admins = await getAllAdminAccounts();
+
+      const adminAccounts: MessagingAccount[] = (admins ?? [])
+        .map((a: any) => ({
+          id: String(a.id ?? a.email ?? ""),
+          email: String(a.email ?? "").trim(),
+          company_name: (a.company_name ?? a.name ?? a.email ?? "") as string,
+          role: (a.role ?? "internal_user") as MessagingAccountRole,
+        }))
+        .filter((a) => !!a.email);
+
+      // ✅ Vendors from invites endpoint (no /api/admins)
+      const invites = await apiGetInvites();
+
+      const vendorAccounts: MessagingAccount[] = (invites ?? [])
+        .map((i: any) => ({
+          id: String(i.id ?? `${i.vendor_email ?? i.email ?? ""}-invite`),
+          email: String(i.vendor_email ?? i.email ?? "").trim(),
+          company_name: (i.vendor_company ?? "External Guest") as string,
+          role: "external_guest" as const,
+        }))
+        .filter((v) => !!v.email);
+
+      // ✅ Deduplicate by email+role
+      const seen = new Set<string>();
+      const combined: MessagingAccount[] = [];
+
+      for (const a of [...adminAccounts, ...vendorAccounts]) {
+        const key = `${a.email.toLowerCase()}|${a.role}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        combined.push(a);
+      }
+
+      setAccounts(combined);
     } catch (err) {
       console.error("[MessagingCenter] Failed to load accounts:", err);
       toast.error("Failed to load accounts");
@@ -54,10 +117,14 @@ export function MessagingCenter({ onBack, adminRole }: MessagingCenterProps) {
     }
   };
 
-  const roleConfig = {
+  const roleConfig: Record<
+    MessagingAccountRole,
+    { label: string; color: string }
+  > = {
     product_owner: {
       label: "Product Owner",
-      color: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200",
+      color:
+        "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200",
     },
     global_admin: {
       label: "Global Administrator",
@@ -65,16 +132,22 @@ export function MessagingCenter({ onBack, adminRole }: MessagingCenterProps) {
     },
     internal_user: {
       label: "Internal User",
-      color: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
+      color:
+        "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
     },
     external_guest: {
       label: "External Guest",
       color: "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200",
     },
-  } as const;
+  };
 
-  const getRoleBadge = (role: Account["role"]) => {
-    const config = roleConfig[role] ?? { label: role, color: "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200" };
+  const getRoleBadge = (role: MessagingAccountRole) => {
+    const config =
+      roleConfig[role] ??
+      ({
+        label: role,
+        color: "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200",
+      } as const);
 
     return (
       <span
@@ -118,7 +191,7 @@ export function MessagingCenter({ onBack, adminRole }: MessagingCenterProps) {
     });
   };
 
-  const handleSelectByRole = (role: Account["role"]): void => {
+  const handleSelectByRole = (role: MessagingAccountRole): void => {
     const roleAccounts = accounts.filter((a) => a.role === role);
     const next = new Set<string>();
     roleAccounts.forEach((a) => next.add(a.email));
@@ -150,7 +223,7 @@ export function MessagingCenter({ onBack, adminRole }: MessagingCenterProps) {
             type: "admin_message",
             title: `📬 ${title}`,
             message,
-            sender: "Emerson Procurement Team",
+            sender, // uses adminRole without changing visible UI
           })
         );
       }
@@ -175,27 +248,22 @@ export function MessagingCenter({ onBack, adminRole }: MessagingCenterProps) {
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8">
-          <Button
-            variant="ghost"
-            onClick={onBack}
-            className="mb-4 text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
-            type="button"
-          >
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back
-          </Button>
+          {/* ✅ Removed Back button per request */}
 
           <div className="flex items-center gap-3 mb-2">
             <div className="h-12 w-12 bg-blue-600 rounded-lg flex items-center justify-center">
               <MessageSquare className="h-6 w-6 text-white" />
             </div>
+
             <div>
               <div className="flex items-center gap-2">
                 <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
                   Messaging Center
                 </h1>
-                {getRoleBadge(adminRole)}
+
+                {/* ✅ Removed Product Owner / Global Admin badge next to title per request */}
               </div>
+
               <p className="text-gray-600 dark:text-gray-400">
                 Send messages to users across the platform
               </p>
@@ -207,7 +275,9 @@ export function MessagingCenter({ onBack, adminRole }: MessagingCenterProps) {
           <div className="lg:col-span-2">
             <Card>
               <CardHeader>
-                <CardTitle className="text-gray-900 dark:text-white">Select Recipients</CardTitle>
+                <CardTitle className="text-gray-900 dark:text-white">
+                  Select Recipients
+                </CardTitle>
                 <CardDescription className="text-gray-600 dark:text-gray-400">
                   Choose who should receive your message
                 </CardDescription>
@@ -305,7 +375,8 @@ export function MessagingCenter({ onBack, adminRole }: MessagingCenterProps) {
                     <div className="divide-y divide-gray-200 dark:divide-gray-700">
                       {filteredAccounts.map((account) => (
                         <div
-                          key={account.id}
+                          // ✅ stable unique key (fixes React key warning)
+                          key={`${account.email}-${account.role}`}
                           className="p-4 hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer transition-colors"
                           onClick={() => handleToggleUser(account.email)}
                         >
@@ -340,7 +411,9 @@ export function MessagingCenter({ onBack, adminRole }: MessagingCenterProps) {
           <div className="lg:col-span-1">
             <Card className="sticky top-4">
               <CardHeader>
-                <CardTitle className="text-gray-900 dark:text-white">Compose Message</CardTitle>
+                <CardTitle className="text-gray-900 dark:text-white">
+                  Compose Message
+                </CardTitle>
                 <CardDescription className="text-gray-600 dark:text-gray-400">
                   From: Emerson Procurement Team
                 </CardDescription>

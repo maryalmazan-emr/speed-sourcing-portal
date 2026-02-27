@@ -12,12 +12,7 @@ import {
   CardTitle,
 } from "@/app/components/ui/card";
 import { Badge } from "@/app/components/ui/badge";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/app/components/ui/tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/app/components/ui/tabs";
 import {
   Table,
   TableBody,
@@ -46,7 +41,9 @@ export function ManagementDashboard({ userRole, onSelectAuction }: ManagementDas
       <div className="container mx-auto px-4 py-8">
         <Card>
           <CardContent className="py-12 text-center">
-            <h2 className="text-2xl font-bold mb-2 text-gray-900 dark:text-white">Access Denied</h2>
+            <h2 className="text-2xl font-bold mb-2 text-gray-900 dark:text-white">
+              Access Denied
+            </h2>
             <p className="text-gray-600 dark:text-gray-400">
               Only Product Owner and Global Administrators can access this page.
             </p>
@@ -59,7 +56,6 @@ export function ManagementDashboard({ userRole, onSelectAuction }: ManagementDas
     );
   }
 
-  /* ==================== AUCTIONS ==================== */
   const fetchAuctions = useCallback(async () => {
     const data = await apiGetAuctions();
     return Array.isArray(data) ? data : [];
@@ -80,7 +76,6 @@ export function ManagementDashboard({ userRole, onSelectAuction }: ManagementDas
 
   const auctions = useMemo(() => auctionsData ?? [], [auctionsData]);
 
-  /* ==================== INVITES (PER AUCTION) ==================== */
   const fetchAllInvites = useCallback(async () => {
     if (auctions.length === 0) return [];
 
@@ -114,30 +109,6 @@ export function ManagementDashboard({ userRole, onSelectAuction }: ManagementDas
 
   const loading = auctionsLoading || invitesLoading;
 
-  /* ==================== FILTERING ==================== */
-  const filteredAuctions = useMemo(() => {
-    if (!searchQuery.trim()) return auctions;
-
-    const q = searchQuery.toLowerCase();
-    return auctions.filter((a: any) =>
-      [a.title, a.description, a.requestor, a.id]
-        .filter(Boolean)
-        .some((v: string) => String(v).toLowerCase().includes(q))
-    );
-  }, [auctions, searchQuery]);
-
-  const filteredInvites = useMemo(() => {
-    if (!searchQuery.trim()) return invites;
-
-    const q = searchQuery.toLowerCase();
-    return invites.filter((i: any) =>
-      [i.vendor_email, i.invite_token, i.auction_title]
-        .filter(Boolean)
-        .some((v: string) => String(v).toLowerCase().includes(q))
-    );
-  }, [invites, searchQuery]);
-
-  /* ==================== HELPERS ==================== */
   const copyCode = async (code: string) => {
     await navigator.clipboard.writeText(code);
     toast.success("Invite code copied");
@@ -161,6 +132,46 @@ Invite Code: ${token}`
 
   const getShortId = (id: string) => id?.substring(0, 8)?.toUpperCase();
 
+  const getCreatorInfo = (auction: any): { name?: string; email?: string } => {
+    const name =
+      auction?.created_by_name ||
+      auction?.creator_name ||
+      auction?.requestor_name ||
+      (typeof auction?.requestor === "string" ? auction.requestor : undefined);
+
+    const email =
+      auction?.created_by_email ||
+      auction?.creator_email ||
+      auction?.requestor_email ||
+      auction?.created_by?.email ||
+      auction?.creator?.email;
+
+    return { name, email };
+  };
+
+  const filteredAuctions = useMemo(() => {
+    if (!searchQuery.trim()) return auctions;
+
+    const q = searchQuery.toLowerCase();
+    return auctions.filter((a: any) => {
+      const { name, email } = getCreatorInfo(a);
+      return [a.title, a.description, a.requestor, a.id, name, email]
+        .filter(Boolean)
+        .some((v: string) => String(v).toLowerCase().includes(q));
+    });
+  }, [auctions, searchQuery]);
+
+  const filteredInvites = useMemo(() => {
+    if (!searchQuery.trim()) return invites;
+
+    const q = searchQuery.toLowerCase();
+    return invites.filter((i: any) =>
+      [i.vendor_email, i.invite_token, i.auction_title]
+        .filter(Boolean)
+        .some((v: string) => String(v).toLowerCase().includes(q))
+    );
+  }, [invites, searchQuery]);
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -179,7 +190,9 @@ Invite Code: ${token}`
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
             Management Dashboard
           </h1>
-          <Badge className="bg-[#00573d] text-white">{getRoleName(userRole)}</Badge>
+
+          {/* ✅ Removed Product Owner / Global Admin badge next to title per request */}
+          {/* <Badge className="bg-[#00573d] text-white">{getRoleName(userRole)}</Badge> */}
         </div>
 
         <div className="flex items-center gap-4">
@@ -213,7 +226,6 @@ Invite Code: ${token}`
           <TabsTrigger value="invites">Invites ({filteredInvites.length})</TabsTrigger>
         </TabsList>
 
-        {/* Auctions */}
         <TabsContent value="auctions">
           {filteredAuctions.length === 0 ? (
             <Card>
@@ -224,37 +236,56 @@ Invite Code: ${token}`
             </Card>
           ) : (
             <div className="grid gap-4">
-              {filteredAuctions.map((auction: any) => (
-                <Card
-                  key={auction.id}
-                  className="cursor-pointer hover:shadow-lg"
-                  onClick={() => onSelectAuction(auction)}
-                >
-                  <CardHeader>
-                    <CardTitle className="text-gray-900 dark:text-white">
-                      {auction.title}
-                    </CardTitle>
+              {filteredAuctions.map((auction: any) => {
+                const { name, email } = getCreatorInfo(auction);
 
-                    {/* ✅ dark-mode safe ID chip */}
-                    <CardDescription className="mt-1">
-                      <span
-                        className="
-                          inline-block text-xs font-mono px-2 py-1 rounded border
-                          bg-gray-100 text-gray-900 border-gray-200
-                          dark:bg-gray-800 dark:text-gray-100 dark:border-gray-700
-                        "
-                      >
-                        ID: {getShortId(auction.id)}
-                      </span>
-                    </CardDescription>
-                  </CardHeader>
-                </Card>
-              ))}
+                return (
+                  <Card
+                    key={auction.id}
+                    className="cursor-pointer hover:shadow-lg"
+                    onClick={() => onSelectAuction(auction)}
+                  >
+                    <CardHeader>
+                      <CardTitle className="text-gray-900 dark:text-white">
+                        {auction.title}
+                      </CardTitle>
+
+                      {/* CardDescription is a <p> — only inline elements inside */}
+                      <CardDescription className="mt-2 space-y-2">
+                        <span
+                          className="
+                            inline-block text-xs font-mono px-2 py-1 rounded border
+                            bg-gray-100 text-gray-900 border-gray-200
+                            dark:bg-gray-800 dark:text-gray-100 dark:border-gray-700
+                          "
+                        >
+                          ID: {getShortId(auction.id)}
+                        </span>
+
+                        {(name || email) && (
+                          <span className="block text-sm text-gray-700 dark:text-gray-300">
+                            <span className="font-medium">Created by:</span>{" "}
+                            <span className="text-gray-900 dark:text-gray-100">
+                              {name || "—"}
+                            </span>
+                            {email ? (
+                              <>
+                                {" "}
+                                <span className="text-gray-500 dark:text-gray-400">•</span>{" "}
+                                <span className="font-mono">{email}</span>
+                              </>
+                            ) : null}
+                          </span>
+                        )}
+                      </CardDescription>
+                    </CardHeader>
+                  </Card>
+                );
+              })}
             </div>
           )}
         </TabsContent>
 
-        {/* Invites */}
         <TabsContent value="invites">
           <Card>
             <CardHeader>
@@ -291,9 +322,7 @@ Invite Code: ${token}`
                           {invite.vendor_email}
                         </TableCell>
 
-                        <TableCell
-                          className="font-mono text-gray-900 dark:text-gray-100"
-                        >
+                        <TableCell className="font-mono text-gray-900 dark:text-gray-100">
                           {invite.invite_token}
                         </TableCell>
 

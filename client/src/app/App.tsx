@@ -1,9 +1,8 @@
 // File: src/app/App.tsx
-
 "use client";
 
 import "@/lib/preInit";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { Header } from "@/app/components/Header";
@@ -28,6 +27,7 @@ import {
   createPresetAccounts,
 } from "@/lib/adminAuth";
 
+// ✅ keep apiGetAuctions because App.tsx uses it to load the most recent auction after create
 import { apiGetAuctions, apiGetAuction, apiMigrateInvites } from "@/lib/api";
 
 import type { Admin } from "@/lib/backend";
@@ -35,7 +35,7 @@ import { ThemeProvider } from "@/lib/theme";
 
 import {
   setupAutoBackup,
-  checkDataIntegrity,
+  // ✅ FIX: checkDataIntegrity removed because you asked to remove it
   createBackup,
   setupDataMonitoring,
 } from "@/lib/dataProtection";
@@ -63,17 +63,18 @@ export default function App() {
   const [initialized, setInitialized] = useState(false);
 
   const adminRole = adminSession?.role;
-
   const perms = useMemo(() => getPermissions(role, adminRole), [role, adminRole]);
+
+  const prevViewRef = useRef<View>(view);
 
   // ---------- Bootstrap ----------
   useEffect(() => {
-    initializeApp();
+    void initializeApp();
 
     const stopAutoBackup = setupAutoBackup(15);
     const stopMonitoring = setupDataMonitoring();
 
-    bootstrapVendorFromInviteLink();
+    void bootstrapVendorFromInviteLink();
 
     const onHashChange = () => {
       const next = getViewFromHash();
@@ -81,23 +82,33 @@ export default function App() {
     };
 
     window.addEventListener("hashchange", onHashChange);
-
     return () => {
       stopAutoBackup();
       stopMonitoring();
       window.removeEventListener("hashchange", onHashChange);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Keep hash in sync with view (for active menu highlighting)
   useEffect(() => {
     setHashForView(view);
   }, [view]);
 
-  // Global route guard: if someone types a hash manually, prevent forbidden mounts
+  // ✅ Clear auction context when leaving admin OR vendor dashboard
   useEffect(() => {
-    const needsAdmin =
+    const prev = prevViewRef.current;
+    prevViewRef.current = view;
+
+    if (
+      (prev === "admin-dashboard" && view !== "admin-dashboard") ||
+      (prev === "vendor-dashboard" && view !== "vendor-dashboard")
+    ) {
+      setAuction(null);
+    }
+  }, [view]);
+
+  // ---------- Guards ----------
+  useEffect(() => {
+    const needsInternal =
       view.startsWith("admin") ||
       view === "all-auctions" ||
       view === "accounts" ||
@@ -108,29 +119,21 @@ export default function App() {
 
     const needsVendor = view.startsWith("vendor");
 
-    // Force role alignment (hash-driven navigation safety)
     if (needsVendor && role !== "vendor") setRole("vendor");
-    if (needsAdmin && role !== "admin") setRole("admin");
+    if (needsInternal && role !== "admin") setRole("admin");
 
-    // Auth guard
-    if (role === "admin") {
-      if (view !== "admin-login" && !adminSession) {
-        setView("admin-login");
-        return;
-      }
+    if (role === "admin" && view !== "admin-login" && !adminSession) {
+      setView("admin-login");
+      return;
     }
 
-    if (role === "vendor") {
-      if (view !== "vendor-login" && !vendorSession) {
-        setView("vendor-login");
-        return;
-      }
+    if (role === "vendor" && view !== "vendor-login" && !vendorSession) {
+      setView("vendor-login");
+      return;
     }
 
-    // Permission guard (prevents mounting forbidden component)
     if (!perms.canAccessView(view)) {
-      if (role === "admin") setView("all-auctions");
-      else setView("vendor-dashboard");
+      setView(role === "admin" ? "all-auctions" : "vendor-dashboard");
     }
   }, [view, role, adminSession, vendorSession, perms]);
 
@@ -155,15 +158,10 @@ export default function App() {
     try {
       await createPresetAccounts();
       await apiMigrateInvites();
-
-      const integrity = await checkDataIntegrity();
-      if (Array.isArray(integrity.issues)) {
-        integrity.issues.forEach(issue => toast.warning(issue, { duration: 5000 }));
-      }
-
       await createBackup();
       setInitialized(true);
     } catch (err) {
+      // eslint-disable-next-line no-console
       console.error(err);
       toast.error("Failed to initialize app");
       setInitialized(true);
@@ -181,8 +179,8 @@ export default function App() {
 
     if (isNewAccount) {
       const isEmersonEmail = email.toLowerCase().endsWith("@emerson.com");
-      const role = isEmersonEmail ? "internal_user" : "external_guest";
-      admin = await createAdminAccount(email, password, name, role);
+      const createdRole = isEmersonEmail ? "internal_user" : "external_guest";
+      admin = await createAdminAccount(email, password, name, createdRole);
     } else {
       admin = await validateAdminLogin(email, password);
     }
@@ -211,27 +209,40 @@ export default function App() {
     setView("admin-login");
   };
 
-  // ---------- Navigation (Menu -> Hash only) ----------
+  // ---------- Navigation ----------
   const handleNavigate = (target: View) => {
     setView(target);
   };
 
-  // ---------- Create Auction (Menu Action) ----------
+  // ---------- Create Auction ----------
   const handleCreateAuction = () => {
     setAuction(null);
-    setRole("admin");
     setView("admin-setup");
   };
 
-  // ---------- Auction / Vendor ----------
-  const handleAuctionComplete = async () => {
-    const auctions = await apiGetAuctions(adminSession?.email);
-    if (auctions?.length) {
-      setAuction(auctions[auctions.length - 1]);
-      setView("admin-dashboard");
+  // ✅ FIX: AdminSetup expects onComplete: () => void
+  // So we keep a zero-arg handler and load the latest auction for the admin.
+  const handleAuctionComplete = async (): Promise<void> => {
+    try {
+      const auctions = await apiGetAuctions(adminSession?.email);
+      if (Array.isArray(auctions) && auctions.length > 0) {
+        const latest = auctions[auctions.length - 1];
+        setAuction(latest);
+        setView("admin-dashboard");
+        if (latest?.id) void loadAuction(latest.id);
+      } else {
+        toast.error("Auction created, but could not load it from the list.");
+        setView("all-auctions");
+      }
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error(err);
+      toast.error("Failed to load created auction");
+      setView("all-auctions");
     }
   };
 
+  // ---------- Vendor ----------
   const handleVendorLogin = (session: any, auctionId: string) => {
     localStorage.setItem(VENDOR_SESSION_KEY, JSON.stringify(session));
     setVendorSession(session);
@@ -253,20 +264,9 @@ export default function App() {
     setAuction(a);
   };
 
-  const handleResetAuction = () => {
-    setAuction(null);
-    setView("all-auctions");
-  };
-
-  // ✅ FIX #1: Clicking an auction should OPEN that auction page
   const handleOpenAuctionFromList = (a: any) => {
-    // Set immediately so AdminDashboard can mount safely
     setAuction(a);
-
-    // Navigate to dashboard
     setView("admin-dashboard");
-
-    // Load full auction details (if list item is partial)
     if (a?.id) void loadAuction(a.id);
   };
 
@@ -278,25 +278,29 @@ export default function App() {
   const showHeader = view !== "admin-login" && view !== "vendor-login";
 
   const renderView = () => {
-    // Everyone
     if (view === "faq") return <FAQ />;
 
-    // Vendor
     if (view === "vendor-login") return <VendorLogin onLogin={handleVendorLogin} />;
     if (view === "vendor-dashboard") {
-      if (!vendorSession || !auction)
+      if (!vendorSession || !auction) {
         return <AccessDenied message="Vendor session or auction not loaded." />;
-      return <VendorDashboard auction={auction} session={vendorSession} onLogout={handleVendorLogout} />;
+      }
+      return (
+        <VendorDashboard
+          auction={auction}
+          session={vendorSession}
+          onLogout={handleVendorLogout}
+        />
+      );
     }
 
-    // Admin
     if (view === "admin-login") return <AdminLogin onLogin={handleAdminLogin} />;
-
-    if (!adminSession) return <AccessDenied message="Please login as an admin." />;
+    if (!adminSession) return <AccessDenied message="Please login." />;
 
     if (view === "admin-setup") {
-      if (!perms.canCreateAuction)
+      if (!perms.canCreateAuction) {
         return <AccessDenied message="Your role cannot create auctions." />;
+      }
       return <AdminSetup adminSession={adminSession} onComplete={handleAuctionComplete} />;
     }
 
@@ -321,34 +325,51 @@ export default function App() {
       );
     }
 
-    // Privileged-only mounts
     if (view === "management-dashboard") {
-      if (!perms.canAccessManagementDashboard)
+      if (!perms.canAccessManagementDashboard) {
         return <AccessDenied message="Only Product Owner and Global Admin can access this page." />;
-      return <ManagementDashboard userRole={adminSession.role} onSelectAuction={setAuction} />;
+      }
+      return (
+        <ManagementDashboard
+          userRole={adminSession.role}
+          onSelectAuction={handleOpenAuctionFromList}
+        />
+      );
     }
 
     if (view === "accounts") {
-      if (!perms.canAccessAccounts)
+      if (!perms.canAccessAccounts) {
         return <AccessDenied message="Only Product Owner and Global Admin can access this page." />;
-      return <Accounts adminEmail={adminSession.email} userRole={adminSession.role} />;
+      }
+      return (
+        <Accounts
+          adminEmail={adminSession.email}
+          userRole={adminSession.role}
+          onSelectAuction={handleOpenAuctionFromList}
+        />
+      );
     }
 
     if (view === "manage-global-admins") {
-      if (!perms.canManageGlobalAdmins)
+      if (!perms.canManageGlobalAdmins) {
         return <AccessDenied message="Only Product Owner can manage global admins." />;
+      }
       return <ManageGlobalAdmins onBack={() => setView("management-dashboard")} />;
     }
 
     if (view === "messaging-center") {
-      if (!perms.canUseMessagingCenter)
+      if (!perms.canUseMessagingCenter) {
         return <AccessDenied message="Only Product Owner and Global Admin can access this page." />;
-      return <MessagingCenter onBack={() => setView("management-dashboard")} adminRole={adminSession.role} />;
+      }
+      return (
+        <MessagingCenter
+          onBack={() => setView("management-dashboard")}
+          adminRole={adminSession.role}
+        />
+      );
     }
 
-    if (view === "debug-storage") {
-      return <DebugStorage />;
-    }
+    if (view === "debug-storage") return <DebugStorage />;
 
     return <AccessDenied message="Unknown page." />;
   };
@@ -360,18 +381,16 @@ export default function App() {
           <Header
             auction={auction}
             role={role}
+            view={view}
             onNavigate={handleNavigate}
             onCreateAuction={adminSession ? handleCreateAuction : undefined}
-            onResetAuction={adminSession ? handleResetAuction : undefined}
             onAdminLogout={adminSession ? handleAdminLogout : undefined}
             currentUser={adminSession?.email}
             adminRole={adminSession?.role}
             vendorEmail={vendorSession?.vendor_email}
           />
         )}
-
         {renderView()}
-
         <Toaster position="top-center" />
       </div>
     </ThemeProvider>

@@ -28,3 +28,6 @@ export {
   apiValidateVendorToken,
   apiUpdateVendorAccess,
 } from "./vendor";
+
+// ✅ Accounts
+export { apiGetAllAdmins, getAccounts } from "./accounts";
